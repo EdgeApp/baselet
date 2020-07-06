@@ -39,6 +39,7 @@
     "*.{js,ts}": "eslint"
   },
   "dependencies": {
+    "disklet": "^0.4.5"
   },
   "devDependencies": {
     "@babel/core": "^7.9.6",
