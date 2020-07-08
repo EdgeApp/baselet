@@ -1,7 +1,7 @@
-export interface CountBase {
-  insert(partition: string, index: number, data: any): Promise<unknown>
-  query(partition: string, range: number): Promise<any>
-  length(): number
+export enum BaseType {
+  COUNT_BASE,
+  HASH_BASE,
+  RANGE_BASE
 }
 
 export interface HashBase {
@@ -15,8 +15,11 @@ export interface RangeBase {
   queryByte(partition: string, range: number, id: string): Promise<any>
 }
 
-export const BaseTypes = {
-  COUNT_BASE: 'count_base',
-  HASH_BASE: 'hash_base',
-  RANGE_BASE: 'range_base'
+export interface BaseletConfig {
+  type: BaseType
+  partitions: {
+    [partitionName: string]: {
+      length: number
+    }
+  }
 }
