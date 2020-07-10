@@ -6,9 +6,4 @@ export enum BaseType {
 
 export interface BaseletConfig {
   type: BaseType
-  partitions: {
-    [partitionName: string]: {
-      length: number
-    }
-  }
 }

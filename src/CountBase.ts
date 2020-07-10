@@ -8,35 +8,30 @@ export interface CountBase {
   length(): Promise<number>
 }
 
-export interface CountBaseConfig extends BaseletConfig {
+interface CountBaseConfig extends BaseletConfig {
   bucketSize: number
   length: number
-}
-
-export function createCountBase(
-  disklet: Disklet,
-  databaseName: string,
-  bucketSize: number
-): Promise<CountBase> {
-  // check that databaseName only contains letters, numbers, and underscores
-  // check if database already exists
-
-  // check that bucketSize is a positive Integer
-
-  // create config file at databaseName/config.json
-  const configData: CountBaseConfig = {
-    type: BaseType.COUNT_BASE,
-    bucketSize,
-    length: 0,
-    partitions: {
-      '/': {
-        length: 0
-      }
+  partitions: {
+    [partitionName: string]: {
+      length: number
     }
   }
-  return disklet
-    .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-    .then(() => ({
+}
+
+export function openCountBase(
+  disklet: Disklet,
+  databaseName: string
+): Promise<CountBase> {
+  // check that the db exists and is of type CountBase
+
+  function getConfig(): Promise<CountBaseConfig> {
+    return disklet
+      .getText(`${databaseName}/config.json`)
+      .then(serializedConfig => JSON.parse(serializedConfig))
+  }
+
+  return getConfig().then(configData => {
+    return {
       insert(
         partition: string = '/',
         index: number,
@@ -62,8 +57,8 @@ export function createCountBase(
           )
         }
 
-        const bucketNumber = Math.floor(index / bucketSize)
-        const bucketIndex = index % bucketSize
+        const bucketNumber = Math.floor(index / configData.bucketSize)
+        const bucketIndex = index % configData.bucketSize
         const bucketExists = bucketIndex !== 0
         if (index === nextIndex) {
           ++partitionMetadata.length
@@ -127,8 +122,8 @@ export function createCountBase(
         }
         const bucketFetchers = []
         for (
-          let bucketNumber = Math.floor(rangeStart / bucketSize);
-          bucketNumber <= Math.floor(rangeEnd / bucketSize);
+          let bucketNumber = Math.floor(rangeStart / configData.bucketSize);
+          bucketNumber <= Math.floor(rangeEnd / configData.bucketSize);
           bucketNumber++
         ) {
           bucketFetchers.push(
@@ -146,10 +141,10 @@ export function createCountBase(
           .then(bucketList => {
             const queryResults: any[] = []
             for (let i = rangeStart; i <= rangeEnd; i++) {
-              const bucketNumber = Math.floor(i / bucketSize)
-              const dataIndex = i % bucketSize
+              const bucketNumber = Math.floor(i / configData.bucketSize)
+              const dataIndex = i % configData.bucketSize
               const fetchedBucketNumber =
-                bucketNumber - Math.floor(rangeStart / bucketSize)
+                bucketNumber - Math.floor(rangeStart / configData.bucketSize)
               queryResults.push(bucketList[fetchedBucketNumber][dataIndex])
             }
             return queryResults
@@ -168,5 +163,31 @@ export function createCountBase(
         }
         return Promise.resolve(partitionMetadata.length)
       }
-    }))
+    }
+  })
+}
+
+export function createCountBase(
+  disklet: Disklet,
+  databaseName: string,
+  bucketSize: number
+): Promise<CountBase> {
+  // check that databaseName only contains letters, numbers, and underscores
+  // check if database already exists
+  // check that bucketSize is a positive Integer
+
+  // create config file at databaseName/config.json
+  const configData: CountBaseConfig = {
+    type: BaseType.COUNT_BASE,
+    bucketSize,
+    length: 0,
+    partitions: {
+      '/': {
+        length: 0
+      }
+    }
+  }
+  return disklet
+    .setText(`${databaseName}/config.json`, JSON.stringify(configData))
+    .then(() => openCountBase(disklet, databaseName))
 }
