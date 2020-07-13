@@ -1,5 +1,6 @@
 import { Disklet } from 'disklet'
 
+import { checkAndformatPartition } from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
 export interface HashBase {
@@ -34,15 +35,11 @@ export function openHashBase(
 
   return getConfig().then(configData => {
     return {
-      insert(
-        partition: string = '/',
-        hash: string,
-        data: any
-      ): Promise<unknown> {
+      insert(partition: string, hash: string, data: any): Promise<unknown> {
         // check that partition only contains letters, numbers, and underscores
         // if no partition, then root
         const { prefixSize } = configData
-
+        const formattedPartition = checkAndformatPartition(partition)
         if (typeof hash !== 'string' || hash.length < prefixSize) {
           return Promise.reject(
             new Error(`hash must be a string of length at least ${prefixSize}`)
@@ -51,35 +48,22 @@ export function openHashBase(
 
         const prefix = hash.substring(0, prefixSize)
         const bucketFilename = `${prefix}.json`
-        const bucketPath = `${databaseName}/${partition}/${bucketFilename}`
+        const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
         return disklet
-          .list(`${bucketPath}`)
-          .then(existingFiles => {
-            return existingFiles[`${bucketPath}`] === 'file'
+          .getText(bucketPath)
+          .then(serializedBucket => JSON.parse(serializedBucket))
+          .then(bucketData => {
+            bucketData[hash] = data
+            return disklet.setText(bucketPath, JSON.stringify(bucketData))
           })
-          .then(bucketExists => {
-            if (bucketExists) {
-              return disklet
-                .getText(bucketPath)
-                .then(serializedBucket => JSON.parse(serializedBucket))
-                .then(bucketData => {
-                  bucketData[hash] = data
-                  return disklet.setText(
-                    `${bucketPath}`,
-                    JSON.stringify(bucketData)
-                  )
-                })
-            } else {
-              return disklet.setText(
-                `${databaseName}/${partition}/${prefix}.json`,
-                JSON.stringify({ [hash]: data })
-              )
-            }
+          .catch(error => {
+            console.log(error)
+            // assuming bucket did not exist
+            return disklet.setText(bucketPath, JSON.stringify({ [hash]: data }))
           })
       },
-      query(partition: string = '/', hashes: string[]): Promise<any[]> {
-        // check that partition only contains letters, numbers, and underscores
-        // and that it exists
+      query(partition: string, hashes: string[]): Promise<any[]> {
+        const formattedPartition = checkAndformatPartition(partition)
         if (hashes.length < 1) {
           return Promise.reject(
             new Error('At least one hash is required to query database.')
@@ -95,7 +79,9 @@ export function openHashBase(
           ].substring(0, prefixSize)
           if (bucketDict[bucketName] === undefined) {
             const bucketFetcher = disklet
-              .getText(`${databaseName}/${partition}/${bucketName}.json`)
+              .getText(
+                `${databaseName}${formattedPartition}/${bucketName}.json`
+              )
               .then(serializedBucket => JSON.parse(serializedBucket))
               .then(bucketData => {
                 bucketDict[bucketName].bucketData = bucketData
@@ -133,7 +119,7 @@ export function createHashBase(
 
   // create config file at databaseName/config.json
   const configData: HashBaseConfig = {
-    type: BaseType.HASH_BASE,
+    type: BaseType.HashBase,
     prefixSize
   }
   return disklet

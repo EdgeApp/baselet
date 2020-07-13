@@ -15,10 +15,10 @@ export function openBase(
     .then(configData => {
       let baselet: Promise<CountBase | HashBase>
       switch (configData.type) {
-        case BaseType.COUNT_BASE:
+        case BaseType.CountBase:
           baselet = openCountBase(disklet, databaseName)
           break
-        case BaseType.HASH_BASE:
+        case BaseType.HashBase:
           baselet = openHashBase(disklet, databaseName)
           break
         default:

@@ -1,7 +1,7 @@
 export enum BaseType {
-  COUNT_BASE,
-  HASH_BASE,
-  RANGE_BASE
+  CountBase = 'COUNT_BASE',
+  HashBase = 'HASH_BASE',
+  RangeBase = 'RANGE_BASE'
 }
 
 export interface BaseletConfig {

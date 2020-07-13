@@ -12,11 +12,11 @@ describe('CountBase baselet', function () {
   const dbBucketSize = 10
   it('create countbase', async function () {
     const expectedTest = JSON.stringify({
-      type: BaseType.COUNT_BASE,
+      type: BaseType.CountBase,
       bucketSize: dbBucketSize,
       length: 0,
       partitions: {
-        '/': {
+        '': {
           length: 0
         }
       }
@@ -34,7 +34,9 @@ describe('CountBase baselet', function () {
     const storedData = await disklet.getText(
       `${dbName}/${partitionName}/${bucketNumber}.json`
     )
-    expect(JSON.parse(storedConfig).partitions[partitionName].length).equals(1)
+    expect(
+      JSON.parse(storedConfig).partitions[`/${partitionName}`].length
+    ).equals(1)
     expect(JSON.stringify(JSON.parse(storedData)[index])).equals(
       JSON.stringify(testData)
     )

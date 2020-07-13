@@ -12,7 +12,7 @@ describe('HashBase baselet', function () {
   const prefixSize = 2
   it('create hashbase', async function () {
     const expectedTest = JSON.stringify({
-      type: BaseType.HASH_BASE,
+      type: BaseType.HashBase,
       prefixSize
     })
     hashbaseDb = await createHashBase(disklet, dbName, prefixSize)
