@@ -141,9 +141,10 @@ export function openCountBase(
               )
               .then(rawBucketData => JSON.parse(rawBucketData))
               .catch(error => {
-                throw new Error(
+                console.log(
                   `Error getting data from bucket ${bucketNumber}. ${error}`
                 )
+                return []
               })
           )
         }
