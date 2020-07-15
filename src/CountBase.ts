@@ -148,12 +148,6 @@ export function openCountBase(
                 `${databaseName}${formattedPartition}/${bucketNumber}.json`
               )
               .then(rawBucketData => JSON.parse(rawBucketData))
-              .catch(error => {
-                console.log(
-                  `Error getting data from bucket ${bucketNumber}. ${error}`
-                )
-                return []
-              })
           )
         }
         return Promise.all(bucketFetchers).then(bucketList => {
