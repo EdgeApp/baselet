@@ -52,15 +52,20 @@ export function openHashBase(
         return disklet
           .getText(bucketPath)
           .then(serializedBucket => JSON.parse(serializedBucket))
-          .then(bucketData => {
-            bucketData[hash] = data
-            return disklet.setText(bucketPath, JSON.stringify(bucketData))
-          })
-          .catch(error => {
-            console.log(error)
-            // assuming bucket did not exist
-            return disklet.setText(bucketPath, JSON.stringify({ [hash]: data }))
-          })
+          .then(
+            bucketData => {
+              bucketData[hash] = data
+              return disklet.setText(bucketPath, JSON.stringify(bucketData))
+            },
+            error => {
+              console.log(error)
+              console.log('assuming bucket doesnt exist')
+              return disklet.setText(
+                bucketPath,
+                JSON.stringify({ [hash]: data })
+              )
+            }
+          )
       },
       query(partition: string, hashes: string[]): Promise<any[]> {
         const formattedPartition = checkAndformatPartition(partition)
