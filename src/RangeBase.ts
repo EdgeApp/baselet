@@ -26,7 +26,7 @@ interface RangeBaseConfig extends BaseletConfig {
 export function openRangeBase(
   disklet: Disklet,
   databaseName: string
-): Promise<RangeBase> {
+): RangeBase {
   // check that the db exists and is of type RangeBase
 
   function getConfig(): Promise<RangeBaseConfig> {
@@ -51,7 +51,7 @@ export function openRangeBase(
     let currentIndex: number = 0
     let currentElement
 
-    // sanity check arguments
+    // TODO: sanity check arguments
 
     while (minIndex <= maxIndex) {
       currentIndex = ~~((minIndex + maxIndex) / 2)
@@ -89,16 +89,15 @@ export function openRangeBase(
         }
       }
     }
-
     return {
       found: false,
       index: currentElement < input ? currentIndex + 1 : currentIndex
     }
   }
 
-  return getConfig().then(configData => {
-    return {
-      insert(partition: string, data: any): Promise<unknown> {
+  return {
+    insert(partition: string, data: any): Promise<unknown> {
+      return getConfig().then(configData => {
         const { bucketSize, rangeKey, idKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
         if (
@@ -155,20 +154,20 @@ export function openRangeBase(
             error => {
               console.log(error)
               console.log('assuming bucket doesnt exist')
-              // we must be sure bucket doesnt exist, else we'll overwrite
-              // we have to identify the error
               return disklet.setText(bucketPath, JSON.stringify([data]))
             }
           )
-      },
-      query(
-        partition: string = '/',
-        rangeStart: number,
-        rangeEnd: number = rangeStart
-      ): Promise<any[]> {
+      })
+    },
+    query(
+      partition: string = '/',
+      rangeStart: number,
+      rangeEnd: number = rangeStart
+    ): Promise<any[]> {
+      return getConfig().then(configData => {
         const { bucketSize, rangeKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
-        // sanity check the range
+        // TODO: sanity check the range
         const bucketFetchers = []
         for (
           let bucketNumber = Math.floor(rangeStart / bucketSize);
@@ -218,8 +217,10 @@ export function openRangeBase(
           }
           return queryResults
         })
-      },
-      queryById(partition: string, range: number, id: string): Promise<any> {
+      })
+    },
+    queryById(partition: string, range: number, id: string): Promise<any> {
+      return getConfig().then(configData => {
         const { bucketSize, rangeKey, idKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
         const bucketNumber = Math.floor(range / bucketSize)
@@ -251,9 +252,9 @@ export function openRangeBase(
             }
             return Promise.resolve(bucketData[targetIndex.index])
           })
-      }
+      })
     }
-  })
+  }
 }
 
 export function createRangeBase(
@@ -263,8 +264,8 @@ export function createRangeBase(
   rangeKey: string,
   idKey: string
 ): Promise<RangeBase> {
-  // check that databaseName only contains letters, numbers, and underscores
-  // check if database already exists
+  // TODO: check if database already exists
+  // TODO: check that databaseName only contains letters, numbers, and underscores
 
   const configData: RangeBaseConfig = {
     type: BaseType.RangeBase,

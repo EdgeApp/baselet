@@ -21,11 +21,8 @@ interface BucketDictionary {
   }
 }
 
-export function openHashBase(
-  disklet: Disklet,
-  databaseName: string
-): Promise<HashBase> {
-  // check that the db exists and is of type HashBase
+export function openHashBase(disklet: Disklet, databaseName: string): HashBase {
+  // TODO: check that the db exists and is of type HashBase
 
   function getConfig(): Promise<HashBaseConfig> {
     return disklet
@@ -33,11 +30,9 @@ export function openHashBase(
       .then(serializedConfig => JSON.parse(serializedConfig))
   }
 
-  return getConfig().then(configData => {
-    return {
-      insert(partition: string, hash: string, data: any): Promise<unknown> {
-        // check that partition only contains letters, numbers, and underscores
-        // if no partition, then root
+  return {
+    insert(partition: string, hash: string, data: any): Promise<unknown> {
+      return getConfig().then(configData => {
         const { prefixSize } = configData
         const formattedPartition = checkAndformatPartition(partition)
         if (typeof hash !== 'string' || hash.length < prefixSize) {
@@ -66,8 +61,10 @@ export function openHashBase(
               )
             }
           )
-      },
-      query(partition: string, hashes: string[]): Promise<any[]> {
+      })
+    },
+    query(partition: string, hashes: string[]): Promise<any[]> {
+      return getConfig().then(configData => {
         const formattedPartition = checkAndformatPartition(partition)
         if (hashes.length < 1) {
           return Promise.reject(
@@ -78,7 +75,7 @@ export function openHashBase(
         const bucketFetchers = []
         const bucketDict: BucketDictionary = {}
         for (let inputIndex = 0; inputIndex < hashes.length; inputIndex++) {
-          // check to make sure hash length is at least prefixSize
+          // TODO: check to make sure hash length is at least prefixSize
           const bucketName: keyof typeof bucketDict = hashes[
             inputIndex
           ].substring(0, prefixSize)
@@ -108,9 +105,9 @@ export function openHashBase(
           }
           return results
         })
-      }
+      })
     }
-  })
+  }
 }
 
 export function createHashBase(
@@ -118,11 +115,10 @@ export function createHashBase(
   databaseName: string,
   prefixSize: number
 ): Promise<HashBase> {
-  // check that databaseName only contains letters, numbers, and underscores
-  // check if database already exists
-  // check that prefixSize is a positive Integer
+  // TODO: check if database already exists
+  // TODO: check that databaseName only contains letters, numbers, and underscores
+  // TODO: check that prefixSize is a positive Integer
 
-  // create config file at databaseName/config.json
   const configData: HashBaseConfig = {
     type: BaseType.HashBase,
     prefixSize
