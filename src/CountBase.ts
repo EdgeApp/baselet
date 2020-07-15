@@ -45,13 +45,6 @@ export function openCountBase(
           writeConfig = true
         }
         const nextIndex = partitionMetadata.length
-        console.log(`inserting:
-            formattedPartition: ${formattedPartition}
-            configData: ${JSON.stringify(configData)}
-            partitionMetadata: ${JSON.stringify(partitionMetadata)}
-            index: ${index}
-            nextIndex: ${nextIndex}
-            `)
 
         if (Number.isNaN(index) || index < 0) {
           return Promise.reject(
