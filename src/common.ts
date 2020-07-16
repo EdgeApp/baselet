@@ -1,11 +1,9 @@
 import { Disklet } from 'disklet'
 
-import { CountBase, createCountBase, openCountBase } from './CountBase'
-import { createHashBase, HashBase, openHashBase } from './HashBase'
-import { createRangeBase, openRangeBase, RangeBase } from './RangeBase'
+import { CountBase, openCountBase } from './CountBase'
+import { HashBase, openHashBase } from './HashBase'
+import { openRangeBase, RangeBase } from './RangeBase'
 import { BaseType } from './types'
-
-export { createCountBase, createHashBase, createRangeBase }
 
 export function openBase(
   disklet: Disklet,
