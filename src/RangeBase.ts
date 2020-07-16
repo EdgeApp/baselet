@@ -1,6 +1,11 @@
 import { Disklet } from 'disklet'
 
-import { checkAndformatPartition } from './helpers'
+import {
+  checkAndformatPartition,
+  checkDatabaseName,
+  doesDatabaseExist,
+  isPositiveInteger
+} from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
 export interface RangeBase {
@@ -27,7 +32,7 @@ export function openRangeBase(
   disklet: Disklet,
   databaseName: string
 ): RangeBase {
-  // check that the db exists and is of type RangeBase
+  // TODO: check that the db exists and is of type RangeBase
 
   function getConfig(): Promise<RangeBaseConfig> {
     return disklet
@@ -35,6 +40,7 @@ export function openRangeBase(
       .then(serializedConfig => JSON.parse(serializedConfig))
   }
 
+  // uses binary search
   function getIndex(
     input: number | string,
     keyName: string,
@@ -258,16 +264,23 @@ export function createRangeBase(
   rangeKey: string,
   idKey: string
 ): Promise<RangeBase> {
-  // TODO: check if database already exists
-  // TODO: check that databaseName only contains letters, numbers, and underscores
-
+  if (!isPositiveInteger(bucketSize)) {
+    throw new Error(`bucketSize must be a number greater than 0`)
+  }
+  databaseName = checkDatabaseName(databaseName)
   const configData: RangeBaseConfig = {
     type: BaseType.RangeBase,
     bucketSize,
     rangeKey,
     idKey
   }
-  return disklet
-    .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-    .then(() => openRangeBase(disklet, databaseName))
+
+  return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
+    if (databaseExists) {
+      throw new Error(`database ${databaseName} already exists`)
+    }
+    return disklet
+      .setText(`${databaseName}/config.json`, JSON.stringify(configData))
+      .then(() => openRangeBase(disklet, databaseName))
+  })
 }

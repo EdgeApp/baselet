@@ -1,6 +1,11 @@
 import { Disklet } from 'disklet'
 
-import { checkAndformatPartition } from './helpers'
+import {
+  checkAndformatPartition,
+  checkDatabaseName,
+  doesDatabaseExist,
+  isPositiveInteger
+} from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
 export interface HashBase {
@@ -115,15 +120,21 @@ export function createHashBase(
   databaseName: string,
   prefixSize: number
 ): Promise<HashBase> {
-  // TODO: check if database already exists
-  // TODO: check that databaseName only contains letters, numbers, and underscores
-  // TODO: check that prefixSize is a positive Integer
+  databaseName = checkDatabaseName(databaseName)
+  if (!isPositiveInteger(prefixSize)) {
+    throw new Error(`prefixSize must be a number greater than 0`)
+  }
 
   const configData: HashBaseConfig = {
     type: BaseType.HashBase,
     prefixSize
   }
-  return disklet
-    .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-    .then(() => openHashBase(disklet, databaseName))
+  return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
+    if (databaseExists) {
+      throw new Error(`database ${databaseName} already exists`)
+    }
+    return disklet
+      .setText(`${databaseName}/config.json`, JSON.stringify(configData))
+      .then(() => openHashBase(disklet, databaseName))
+  })
 }

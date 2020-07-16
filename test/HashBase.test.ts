@@ -8,9 +8,9 @@ import { BaseType } from '../src/types'
 describe('HashBase baselet', function () {
   const disklet = makeMemoryDisklet()
   let hashbaseDb: HashBase
-  const dbName = 'testdb'
+  const dbName = 'testHashdb'
   const prefixSize = 2
-  const partitionName = 'users'
+  const partitionName = 'students'
   const dataSet = [
     { hash: 'abcd-efgh-ijkl-mnop', input: 'btc', output: 'eth' },
     { hash: 'bytc-efgh-ijkl-mnop', input: 'ltc', output: 'eth' },

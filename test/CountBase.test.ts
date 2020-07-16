@@ -8,7 +8,7 @@ import { BaseType } from '../src/types'
 describe('CountBase baselet', function () {
   const disklet = makeMemoryDisklet()
   let countbaseDb: CountBase
-  const dbName = 'testdb'
+  const dbName = 'testCountdb'
   const dbBucketSize = 10
   const partitionName = 'users'
   const dataSet = [

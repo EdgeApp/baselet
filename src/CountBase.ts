@@ -1,6 +1,11 @@
 import { Disklet } from 'disklet'
 
-import { checkAndformatPartition } from './helpers'
+import {
+  checkAndformatPartition,
+  checkDatabaseName,
+  doesDatabaseExist,
+  isPositiveInteger
+} from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
 interface CountBaseConfig extends BaseletConfig {
@@ -174,21 +179,25 @@ export function createCountBase(
   databaseName: string,
   bucketSize: number
 ): Promise<CountBase> {
-  // check that databaseName only contains letters, numbers, and underscores
-  // check if database already exists
-  // check that bucketSize is a positive Integer
-
-  // create config file at databaseName/config.json
+  if (!isPositiveInteger(bucketSize)) {
+    throw new Error(`bucketSize must be a number greater than 0`)
+  }
+  databaseName = checkDatabaseName(databaseName)
   const configData: CountBaseConfig = {
     type: BaseType.CountBase,
-    bucketSize,
+    bucketSize: Math.floor(bucketSize),
     partitions: {
       '': {
         length: 0
       }
     }
   }
-  return disklet
-    .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-    .then(() => openCountBase(disklet, databaseName))
+  return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
+    if (databaseExists) {
+      throw new Error(`database ${databaseName} already exists`)
+    }
+    return disklet
+      .setText(`${databaseName}/config.json`, JSON.stringify(configData))
+      .then(() => openCountBase(disklet, databaseName))
+  })
 }

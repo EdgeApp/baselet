@@ -8,7 +8,7 @@ import { BaseType } from '../src/types'
 describe('RangeBase baselet', function () {
   const disklet = makeMemoryDisklet()
   let rangebaseDb: RangeBase
-  const dbName = 'testdb'
+  const dbName = 'testRangedb'
   const bucketSize = 2000000
   const rangeKey = 'createdAt'
   const idKey = 'id'
