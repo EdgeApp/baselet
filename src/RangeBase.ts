@@ -31,13 +31,17 @@ interface RangeBaseConfig extends BaseletConfig {
 export function openRangeBase(
   disklet: Disklet,
   databaseName: string
-): RangeBase {
-  // TODO: check that the db exists and is of type RangeBase
-
+): Promise<RangeBase> {
   function getConfig(): Promise<RangeBaseConfig> {
-    return disklet
-      .getText(`${databaseName}/config.json`)
-      .then(serializedConfig => JSON.parse(serializedConfig))
+    return disklet.getText(`${databaseName}/config.json`).then(
+      serializedConfig => JSON.parse(serializedConfig),
+      error => {
+        console.log(error)
+        throw new Error(
+          `The disklet does not have a valid database ${databaseName}`
+        )
+      }
+    )
   }
 
   // uses binary search
@@ -57,7 +61,15 @@ export function openRangeBase(
     let currentIndex: number = 0
     let currentElement
 
-    // TODO: sanity check arguments
+    if (
+      !Number.isInteger(startIndex) ||
+      !Number.isInteger(endIndex) ||
+      endIndex < startIndex
+    ) {
+      throw new Error(
+        'index values must be integers and endIndex >= startIndex'
+      )
+    }
 
     while (minIndex <= maxIndex) {
       currentIndex = ~~((minIndex + maxIndex) / 2)
@@ -101,9 +113,13 @@ export function openRangeBase(
     }
   }
 
-  return {
-    insert(partition: string, data: any): Promise<unknown> {
-      return getConfig().then(configData => {
+  return getConfig().then(configData => {
+    if (configData.type !== BaseType.RangeBase) {
+      throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
+    }
+
+    return {
+      insert(partition: string, data: any): Promise<unknown> {
         const { bucketSize, rangeKey, idKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
         if (
@@ -120,61 +136,64 @@ export function openRangeBase(
         const bucketFilename = `${bucketNumber}.json`
         const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
 
-        return disklet
-          .getText(bucketPath)
-          .then(serializedBucket => JSON.parse(serializedBucket))
-          .then(
-            bucketData => {
-              const firstRangeOccurence = getIndex(
+        return disklet.getText(bucketPath).then(
+          serializedBucket => {
+            const bucketData = JSON.parse(serializedBucket)
+            const firstRangeOccurence = getIndex(
+              data[rangeKey],
+              rangeKey,
+              bucketData
+            )
+            if (firstRangeOccurence.found === false) {
+              bucketData.splice(firstRangeOccurence.index, 0, data)
+            } else {
+              const lastRangeOccurence = getIndex(
                 data[rangeKey],
                 rangeKey,
-                bucketData
+                bucketData,
+                firstRangeOccurence.index,
+                bucketData.length - 1,
+                true
               )
-              if (firstRangeOccurence.found === false) {
-                bucketData.splice(firstRangeOccurence.index, 0, data)
-              } else {
-                const lastRangeOccurence = getIndex(
-                  data[rangeKey],
-                  rangeKey,
-                  bucketData,
-                  firstRangeOccurence.index,
-                  bucketData.length - 1,
-                  true
-                )
-                const targetIndex = getIndex(
-                  data[idKey],
-                  idKey,
-                  bucketData,
-                  firstRangeOccurence.index,
-                  lastRangeOccurence.index
-                )
-                if (targetIndex.found === true) {
-                  throw new Error(
-                    'Cannot insert data because id already exists'
-                  )
-                }
-                bucketData.splice(targetIndex.index, 0, data)
+              const targetIndex = getIndex(
+                data[idKey],
+                idKey,
+                bucketData,
+                firstRangeOccurence.index,
+                lastRangeOccurence.index
+              )
+              if (targetIndex.found === true) {
+                throw new Error('Cannot insert data because id already exists')
               }
-              return disklet.setText(bucketPath, JSON.stringify(bucketData))
-            },
-            error => {
-              console.log(error)
-              console.log('assuming bucket doesnt exist')
-              return disklet.setText(bucketPath, JSON.stringify([data]))
+              bucketData.splice(targetIndex.index, 0, data)
             }
-          )
-      })
-    },
-    query(
-      partition: string = '/',
-      rangeStart: number,
-      rangeEnd: number = rangeStart
-    ): Promise<any[]> {
-      return getConfig().then(configData => {
+            return disklet.setText(bucketPath, JSON.stringify(bucketData))
+          },
+          () => {
+            // assuming bucket doesnt exist
+            return disklet.setText(bucketPath, JSON.stringify([data]))
+          }
+        )
+      },
+      query(
+        partition: string = '/',
+        rangeStart: number,
+        rangeEnd: number = rangeStart
+      ): Promise<any[]> {
         const { bucketSize, rangeKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
-        // TODO: sanity check the range
         const bucketFetchers = []
+
+        if (
+          !Number.isInteger(rangeStart) ||
+          !Number.isInteger(rangeEnd) ||
+          rangeEnd < rangeStart
+        ) {
+          throw new Error(
+            'range values must be integers and rangeEnd >= rangeStart'
+          )
+        }
+
         for (
           let bucketNumber = Math.floor(rangeStart / bucketSize);
           bucketNumber <= Math.floor(rangeEnd / bucketSize);
@@ -185,20 +204,17 @@ export function openRangeBase(
               .getText(
                 `${databaseName}${formattedPartition}/${bucketNumber}.json`
               )
-              .then(rawBucketData => JSON.parse(rawBucketData))
+              .then(
+                rawBucketData => JSON.parse(rawBucketData),
+                () => []
+              )
           )
         }
         return Promise.all(bucketFetchers).then(bucketList => {
           let queryResults: any[] = []
           for (let i = 0; i < bucketList.length; i++) {
-            if (i === 0) {
-              const firstRangeIndex = getIndex(
-                rangeStart,
-                rangeKey,
-                bucketList[i]
-              )
-              queryResults = bucketList[i].slice(firstRangeIndex.index)
-            } else if (i === bucketList.length - 1) {
+            if (i === bucketList.length - 1) {
+              // is last bucket
               const lastRangeIndex = getIndex(
                 rangeEnd,
                 rangeKey,
@@ -209,18 +225,30 @@ export function openRangeBase(
               )
               Array.prototype.push.apply(
                 queryResults,
-                bucketList[i].slice(lastRangeIndex.index)
+                bucketList[i].slice(
+                  0,
+                  lastRangeIndex.found
+                    ? lastRangeIndex.index + 1
+                    : lastRangeIndex.index
+                )
               )
+            } else if (i === 0) {
+              // is first bucket
+              const firstRangeIndex = getIndex(
+                rangeStart,
+                rangeKey,
+                bucketList[i]
+              )
+              queryResults = bucketList[i].slice(firstRangeIndex.index)
             } else {
-              Array.prototype.push.apply(queryResults, bucketList)
+              // is bucket in between range values
+              Array.prototype.push.apply(queryResults, bucketList[i])
             }
           }
           return queryResults
         })
-      })
-    },
-    queryById(partition: string, range: number, id: string): Promise<any> {
-      return getConfig().then(configData => {
+      },
+      queryById(partition: string, range: number, id: string): Promise<any> {
         const { bucketSize, rangeKey, idKey } = configData
         const formattedPartition = checkAndformatPartition(partition)
         const bucketNumber = Math.floor(range / bucketSize)
@@ -252,9 +280,9 @@ export function openRangeBase(
             }
             return Promise.resolve(bucketData[targetIndex.index])
           })
-      })
+      }
     }
-  }
+  })
 }
 
 export function createRangeBase(
@@ -270,7 +298,7 @@ export function createRangeBase(
   databaseName = checkDatabaseName(databaseName)
   const configData: RangeBaseConfig = {
     type: BaseType.RangeBase,
-    bucketSize,
+    bucketSize: Math.floor(bucketSize),
     rangeKey,
     idKey
   }

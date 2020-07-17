@@ -13,7 +13,7 @@ export function openBase(
     .getText(`${databaseName}/config.json`)
     .then(serializedConfig => JSON.parse(serializedConfig))
     .then(configData => {
-      let baselet: CountBase | HashBase | RangeBase
+      let baselet: Promise<CountBase | HashBase | RangeBase>
       switch (configData.type) {
         case BaseType.CountBase:
           baselet = openCountBase(disklet, databaseName)
