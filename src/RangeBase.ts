@@ -64,10 +64,12 @@ export function openRangeBase(
     if (
       !Number.isInteger(startIndex) ||
       !Number.isInteger(endIndex) ||
+      startIndex < 0 ||
+      endIndex > bucket.length - 1 ||
       endIndex < startIndex
     ) {
       throw new Error(
-        'index values must be integers and endIndex >= startIndex'
+        'indices must be valid bucket index values and endIndex >= startIndex'
       )
     }
 
