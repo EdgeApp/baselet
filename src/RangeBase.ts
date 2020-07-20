@@ -214,37 +214,60 @@ export function openRangeBase(
         }
         return Promise.all(bucketFetchers).then(bucketList => {
           let queryResults: any[] = []
-          for (let i = 0; i < bucketList.length; i++) {
-            if (i === bucketList.length - 1) {
-              // is last bucket
-              const lastRangeIndex = getIndex(
-                rangeEnd,
-                rangeKey,
-                bucketList[i],
-                0,
-                bucketList[i].length - 1,
-                true
-              )
-              Array.prototype.push.apply(
-                queryResults,
-                bucketList[i].slice(
-                  0,
-                  lastRangeIndex.found
-                    ? lastRangeIndex.index + 1
-                    : lastRangeIndex.index
+          if (bucketList.length === 1) {
+            // only one bucket
+            const firstRangeIndex = getIndex(
+              rangeStart,
+              rangeKey,
+              bucketList[0]
+            )
+            const lastRangeIndex = getIndex(
+              rangeEnd,
+              rangeKey,
+              bucketList[0],
+              0,
+              bucketList[0].length - 1,
+              true
+            )
+            queryResults = bucketList[0].slice(
+              firstRangeIndex.index,
+              lastRangeIndex.found
+                ? lastRangeIndex.index + 1
+                : lastRangeIndex.index
+            )
+          } else {
+            for (let i = 0; i < bucketList.length; i++) {
+              if (i === 0) {
+                // is first bucket
+                const firstRangeIndex = getIndex(
+                  rangeStart,
+                  rangeKey,
+                  bucketList[i]
                 )
-              )
-            } else if (i === 0) {
-              // is first bucket
-              const firstRangeIndex = getIndex(
-                rangeStart,
-                rangeKey,
-                bucketList[i]
-              )
-              queryResults = bucketList[i].slice(firstRangeIndex.index)
-            } else {
-              // is bucket in between range values
-              Array.prototype.push.apply(queryResults, bucketList[i])
+                queryResults = bucketList[i].slice(firstRangeIndex.index)
+              } else if (i === bucketList.length - 1) {
+                // is last bucket
+                const lastRangeIndex = getIndex(
+                  rangeEnd,
+                  rangeKey,
+                  bucketList[i],
+                  0,
+                  bucketList[i].length - 1,
+                  true
+                )
+                Array.prototype.push.apply(
+                  queryResults,
+                  bucketList[i].slice(
+                    0,
+                    lastRangeIndex.found
+                      ? lastRangeIndex.index + 1
+                      : lastRangeIndex.index
+                  )
+                )
+              } else {
+                // is bucket in between range values
+                Array.prototype.push.apply(queryResults, bucketList[i])
+              }
             }
           }
           return queryResults
