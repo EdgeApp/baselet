@@ -38,5 +38,5 @@ export function doesDatabaseExist(
 }
 
 export function isPositiveInteger(num: number): boolean {
-  return !Number.isNaN(num) && num >= 1
+  return Number.isInteger(num) && num >= 1
 }

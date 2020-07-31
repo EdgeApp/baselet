@@ -24,24 +24,32 @@ export interface CountBase {
     rangeStart: number,
     rangeEnd?: number
   ): Promise<any[]>
-  length(partition: string): Promise<number>
+  length(partition: string): number
 }
 
 export function openCountBase(
   disklet: Disklet,
   databaseName: string
-): CountBase {
-  // check that the db exists and is of type CountBase
-
+): Promise<CountBase> {
   function getConfig(): Promise<CountBaseConfig> {
-    return disklet
-      .getText(`${databaseName}/config.json`)
-      .then(serializedConfig => JSON.parse(serializedConfig))
+    return disklet.getText(`${databaseName}/config.json`).then(
+      serializedConfig => JSON.parse(serializedConfig),
+      error => {
+        console.log(error)
+        throw new Error(
+          `The disklet does not have a valid database ${databaseName}`
+        )
+      }
+    )
   }
 
-  return {
-    insert(partition: string, index: number, data: any): Promise<unknown> {
-      return getConfig().then(configData => {
+  return getConfig().then(configData => {
+    if (configData.type !== BaseType.CountBase) {
+      throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
+    }
+
+    return {
+      insert(partition: string, index: number, data: any): Promise<unknown> {
         const formattedPartition = checkAndformatPartition(partition)
         let writeConfig = false
         let partitionMetadata = configData.partitions[formattedPartition]
@@ -113,14 +121,12 @@ export function openCountBase(
               throw new Error(`Could not insert data. ${error}`)
             })
         }
-      })
-    },
-    query(
-      partition: string,
-      rangeStart: number = 0,
-      rangeEnd: number = rangeStart
-    ): Promise<any[]> {
-      return getConfig().then(configData => {
+      },
+      query(
+        partition: string,
+        rangeStart: number = 0,
+        rangeEnd: number = rangeStart
+      ): Promise<any[]> {
         const formattedPartition = checkAndformatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
         if (partitionMetadata === undefined) {
@@ -145,7 +151,10 @@ export function openCountBase(
               .getText(
                 `${databaseName}${formattedPartition}/${bucketNumber}.json`
               )
-              .then(rawBucketData => JSON.parse(rawBucketData))
+              .then(
+                rawBucketData => JSON.parse(rawBucketData),
+                () => []
+              )
           )
         }
         return Promise.all(bucketFetchers).then(bucketList => {
@@ -159,19 +168,17 @@ export function openCountBase(
           }
           return queryResults
         })
-      })
-    },
-    length(partition: string): Promise<number> {
-      return getConfig().then(configData => {
+      },
+      length(partition: string): number {
         const formattedPartition = checkAndformatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
         if (partitionMetadata === undefined) {
-          return Promise.reject(new Error('No partition found with that name'))
+          throw new Error('No partition found with that name')
         }
-        return Promise.resolve(partitionMetadata.length)
-      })
+        return partitionMetadata.length
+      }
     }
-  }
+  })
 }
 
 export function createCountBase(

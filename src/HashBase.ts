@@ -26,18 +26,29 @@ interface BucketDictionary {
   }
 }
 
-export function openHashBase(disklet: Disklet, databaseName: string): HashBase {
-  // TODO: check that the db exists and is of type HashBase
-
+export function openHashBase(
+  disklet: Disklet,
+  databaseName: string
+): Promise<HashBase> {
   function getConfig(): Promise<HashBaseConfig> {
-    return disklet
-      .getText(`${databaseName}/config.json`)
-      .then(serializedConfig => JSON.parse(serializedConfig))
+    return disklet.getText(`${databaseName}/config.json`).then(
+      serializedConfig => JSON.parse(serializedConfig),
+      error => {
+        console.log(error)
+        throw new Error(
+          `The disklet does not have a valid database ${databaseName}`
+        )
+      }
+    )
   }
 
-  return {
-    insert(partition: string, hash: string, data: any): Promise<unknown> {
-      return getConfig().then(configData => {
+  return getConfig().then(configData => {
+    if (configData.type !== BaseType.HashBase) {
+      throw new Error(`Tried to open HashBase, but type is ${configData.type}`)
+    }
+
+    return {
+      insert(partition: string, hash: string, data: any): Promise<unknown> {
         const { prefixSize } = configData
         const formattedPartition = checkAndformatPartition(partition)
         if (typeof hash !== 'string' || hash.length < prefixSize) {
@@ -49,27 +60,19 @@ export function openHashBase(disklet: Disklet, databaseName: string): HashBase {
         const prefix = hash.substring(0, prefixSize)
         const bucketFilename = `${prefix}.json`
         const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
-        return disklet
-          .getText(bucketPath)
-          .then(serializedBucket => JSON.parse(serializedBucket))
-          .then(
-            bucketData => {
-              bucketData[hash] = data
-              return disklet.setText(bucketPath, JSON.stringify(bucketData))
-            },
-            error => {
-              console.log(error)
-              console.log('assuming bucket doesnt exist')
-              return disklet.setText(
-                bucketPath,
-                JSON.stringify({ [hash]: data })
-              )
-            }
-          )
-      })
-    },
-    query(partition: string, hashes: string[]): Promise<any[]> {
-      return getConfig().then(configData => {
+        return disklet.getText(bucketPath).then(
+          serializedBucket => {
+            const bucketData = JSON.parse(serializedBucket)
+            bucketData[hash] = data
+            return disklet.setText(bucketPath, JSON.stringify(bucketData))
+          },
+          () => {
+            // assuming bucket doesnt exist
+            return disklet.setText(bucketPath, JSON.stringify({ [hash]: data }))
+          }
+        )
+      },
+      query(partition: string, hashes: string[]): Promise<any[]> {
         const formattedPartition = checkAndformatPartition(partition)
         if (hashes.length < 1) {
           return Promise.reject(
@@ -89,10 +92,16 @@ export function openHashBase(disklet: Disklet, databaseName: string): HashBase {
               .getText(
                 `${databaseName}${formattedPartition}/${bucketName}.json`
               )
-              .then(serializedBucket => JSON.parse(serializedBucket))
-              .then(bucketData => {
-                bucketDict[bucketName].bucketData = bucketData
-              })
+              .then(
+                serializedBucket => {
+                  bucketDict[bucketName].bucketData = JSON.parse(
+                    serializedBucket
+                  )
+                },
+                () => {
+                  // assume bucket doesn't exist
+                }
+              )
             bucketDict[bucketName] = {
               bucketFetcher,
               bucketData: {}
@@ -110,9 +119,9 @@ export function openHashBase(disklet: Disklet, databaseName: string): HashBase {
           }
           return results
         })
-      })
+      }
     }
-  }
+  })
 }
 
 export function createHashBase(
