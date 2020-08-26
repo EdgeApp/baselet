@@ -169,10 +169,7 @@ export function openCountBase(
       length(partition: string): number {
         const formattedPartition = checkAndformatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
-        if (partitionMetadata === undefined) {
-          throw new Error('No partition found with that name')
-        }
-        return partitionMetadata.length
+        return partitionMetadata?.length ?? 0
       }
     }
   })
