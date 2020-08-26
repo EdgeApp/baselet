@@ -17,6 +17,7 @@ export interface RangeBase {
     rangeEnd?: number
   ): Promise<any[]>
   queryById(partition: string, idKey: string): Promise<any>
+  delete(partition: string, idKey: string): Promise<void>
 }
 
 export interface RangeBaseData {
@@ -375,6 +376,54 @@ export function openRangeBase(
                   throw new Error(`Data with id ${id} not found.`)
                 }
                 return Promise.resolve(bucketData[targetIndex.index])
+              })
+          })
+        },
+        delete(partition: string, id: string): Promise<void> {
+          return idDb.query(partition, [id]).then(([range]) => {
+            if (range == null) return
+
+            const { bucketSize, rangeKey, idKey } = configData
+            const formattedPartition = checkAndformatPartition(partition)
+            const bucketNumber = Math.floor(range / bucketSize)
+            const bucketFilename = `${bucketNumber}.json`
+            const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
+
+            return disklet
+              .getText(bucketPath)
+              .then(rawBucketData => JSON.parse(rawBucketData))
+              .then((bucketData: any[]) => {
+                const firstRangeOccurence = getIndex(
+                  range,
+                  rangeKey,
+                  bucketData
+                )
+                const lastRangeOccurence = getIndex(
+                  range,
+                  rangeKey,
+                  bucketData,
+                  firstRangeOccurence.index,
+                  bucketData.length - 1,
+                  true
+                )
+                const targetIndex = getIndex(
+                  id,
+                  idKey,
+                  bucketData,
+                  firstRangeOccurence.index,
+                  lastRangeOccurence.index
+                )
+
+                if (targetIndex.found === false) {
+                  throw new Error(`Data with id ${id} not found.`)
+                }
+
+                bucketData.splice(targetIndex.index, 1)
+                return idDb.delete(partition, [id]).then(() => {
+                  return disklet
+                    .setText(bucketPath, JSON.stringify(bucketData))
+                    .then()
+                })
               })
           })
         }
