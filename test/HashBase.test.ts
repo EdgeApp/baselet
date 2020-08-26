@@ -60,4 +60,18 @@ describe('HashBase baselet', function () {
       JSON.stringify([dataSet[4], dataSet[3]])
     )
   })
+  it('delete data', async function () {
+    const dataToDelete = dataSet[dataSet.length - 1]
+
+    const queriedData1 = await hashbaseDb.query(partitionName, [
+      dataToDelete.hash
+    ])
+    expect(queriedData1[0]).to.eql(dataToDelete)
+
+    await hashbaseDb.delete(partitionName, [dataToDelete.hash])
+    const queriedData2 = await hashbaseDb.query(partitionName, [
+      dataToDelete.hash
+    ])
+    expect(queriedData2.length).equals(0)
+  })
 })

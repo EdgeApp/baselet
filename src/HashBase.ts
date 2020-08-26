@@ -11,6 +11,7 @@ import { BaseletConfig, BaseType } from './types'
 export interface HashBase {
   insert(partition: string, hash: string, data: any): Promise<unknown>
   query(partition: string, hashes: string[]): Promise<any[]>
+  delete(partition: string, hashes: string[]): Promise<void>
 }
 
 interface HashBaseConfig extends BaseletConfig {
@@ -20,6 +21,7 @@ interface HashBaseConfig extends BaseletConfig {
 interface BucketDictionary {
   [bucketName: string]: {
     bucketFetcher: Promise<void>
+    bucketPath: string
     bucketData: {
       [hash: string]: any
     }
@@ -73,12 +75,56 @@ export function openHashBase(
         )
       },
       query(partition: string, hashes: string[]): Promise<any[]> {
+        const { prefixSize } = configData
+        if (hashes.length === 0) return Promise.resolve([])
+
         const formattedPartition = checkAndformatPartition(partition)
-        if (hashes.length < 1) {
-          return Promise.reject(
-            new Error('At least one hash is required to query database.')
-          )
-        }
+
+        // remove duplicates
+        const set = new Set(hashes)
+        hashes = Array.from(set)
+
+        const buckets: any = {}
+        return Promise.all(
+          hashes.map(hash => {
+            // make sure hash is as string
+            hash = hash.toString()
+            if (hash.length < prefixSize)
+              throw new Error(
+                `Hash length must be at lest length of ${prefixSize}. Got: ${hash}`
+              )
+
+            const bucketName = hash.substring(0, prefixSize)
+
+            if (buckets[bucketName] != null) return
+
+            buckets[bucketName] = {}
+            return disklet
+              .getText(
+                `${databaseName}${formattedPartition}/${bucketName}.json`
+              )
+              .then(JSON.parse, () => ({}))
+              .then(data => (buckets[bucketName] = data))
+          })
+        ).then(
+          () => {
+            const data = []
+            for (let hash of hashes) {
+              // make sure hash is string
+              hash = hash.toString()
+              const bucketName = hash.substring(0, prefixSize)
+              const bucket = buckets[bucketName]
+              if (bucket[hash] != null) data.push(bucket[hash])
+            }
+            return data
+          },
+          () => new Array(hashes.length)
+        )
+      },
+      delete(partition: string, hashes: string[]): Promise<void> {
+        const formattedPartition = checkAndformatPartition(partition)
+        if (hashes.length === 0) return Promise.resolve()
+
         const { prefixSize } = configData
         const bucketFetchers = []
         const bucketDict: BucketDictionary = {}
@@ -87,37 +133,38 @@ export function openHashBase(
           const bucketName: keyof typeof bucketDict = hashes[
             inputIndex
           ].substring(0, prefixSize)
+          const bucketPath = `${databaseName}${formattedPartition}/${bucketName}.json`
           if (bucketDict[bucketName] === undefined) {
-            const bucketFetcher = disklet
-              .getText(
-                `${databaseName}${formattedPartition}/${bucketName}.json`
-              )
-              .then(
-                serializedBucket => {
-                  bucketDict[bucketName].bucketData = JSON.parse(
-                    serializedBucket
-                  )
-                },
-                () => {
-                  // assume bucket doesn't exist
-                }
-              )
+            const bucketFetcher = disklet.getText(bucketPath).then(
+              serializedBucket => {
+                bucketDict[bucketName].bucketData = JSON.parse(serializedBucket)
+              },
+              () => {
+                // assume bucket doesn't exist
+              }
+            )
             bucketDict[bucketName] = {
               bucketFetcher,
+              bucketPath,
               bucketData: {}
             }
             bucketFetchers.push(bucketFetcher)
           }
         }
         return Promise.all(bucketFetchers).then(() => {
-          const results = []
+          const bucketSavers: Array<Promise<unknown>> = []
           for (let inputIndex = 0; inputIndex < hashes.length; inputIndex++) {
             const bucketName = hashes[inputIndex].substring(0, prefixSize)
-            const bucketData = bucketDict[bucketName].bucketData
-            const hashData = bucketData[hashes[inputIndex]]
-            results.push(hashData)
+            const { bucketPath, bucketData } = bucketDict[bucketName]
+            delete bucketData[hashes[inputIndex]]
+            const saver = disklet.setText(
+              bucketPath,
+              JSON.stringify(bucketData)
+            )
+            bucketSavers.push(saver)
           }
-          return results
+
+          return Promise.all(bucketSavers).then()
         })
       }
     }
