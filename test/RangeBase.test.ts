@@ -13,6 +13,7 @@ describe('RangeBase baselet', function () {
   const idDatabaseName = `${dbName}_ids`
   const rangeKey = 'createdAt'
   const idKey = 'id'
+  const idPrefixLength = 4
   const partitionName = 'transactions'
   const testData1: RangeBaseData = {
     [rangeKey]: 1594734520,
@@ -62,14 +63,16 @@ describe('RangeBase baselet', function () {
       bucketSize,
       idDatabaseName,
       rangeKey,
-      idKey
+      idKey,
+      idPrefixLength
     }
     rangebaseDb = await createRangeBase(
       disklet,
       dbName,
       bucketSize,
       rangeKey,
-      idKey
+      idKey,
+      idPrefixLength
     )
     const config = JSON.parse(await disklet.getText(`${dbName}/config.json`))
     expect(config).to.eql(expectedTest)

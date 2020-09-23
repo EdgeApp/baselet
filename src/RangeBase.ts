@@ -30,6 +30,7 @@ interface RangeBaseConfig extends BaseletConfig {
   idDatabaseName: string
   rangeKey: string
   idKey: string
+  idPrefixLength: number
 }
 
 export function openRangeBase(
@@ -373,7 +374,8 @@ export function createRangeBase(
   databaseName: string,
   bucketSize: number,
   rangeKey: string,
-  idKey: string
+  idKey: string,
+  idPrefixLength = 1
 ): Promise<RangeBase> {
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
@@ -384,7 +386,8 @@ export function createRangeBase(
     bucketSize: Math.floor(bucketSize),
     idDatabaseName: `${databaseName}_ids`,
     rangeKey,
-    idKey
+    idKey,
+    idPrefixLength,
   }
 
   return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
@@ -392,13 +395,14 @@ export function createRangeBase(
       throw new Error(`database ${databaseName} already exists`)
     }
 
-    // TODO: size?
-    return createHashBase(disklet, configData.idDatabaseName, 1).then(
-      idHashBase => {
-        return disklet
-          .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-          .then(() => openRangeBase(disklet, databaseName))
-      }
-    )
+    return createHashBase(
+      disklet,
+      configData.idDatabaseName,
+      idPrefixLength
+    ).then(idHashBase => {
+      return disklet
+        .setText(`${databaseName}/config.json`, JSON.stringify(configData))
+        .then(() => openRangeBase(disklet, databaseName))
+    })
   })
 }
