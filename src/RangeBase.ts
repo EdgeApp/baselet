@@ -18,6 +18,7 @@ export interface RangeBase {
   ): Promise<any[]>
   queryById(partition: string, idKey: string): Promise<any>
   delete(partition: string, idKey: string): Promise<any>
+  move(partition: string, newData: any): Promise<unknown>
 }
 
 export interface RangeBaseData {
@@ -354,6 +355,11 @@ export function openRangeBase(
         },
         delete(partition: string, id: string): Promise<any> {
           return find(partition, id, true)
+        },
+        move(partition: string, newData: any): Promise<unknown> {
+          return Promise.resolve()
+            .then(() => fns.delete(partition, newData[configData.idKey]))
+            .then(() => fns.insert(partition, newData))
         }
       }
 

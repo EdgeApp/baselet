@@ -131,4 +131,31 @@ describe('RangeBase baselet', function () {
     )
     expect(queriedData).equal(undefined)
   })
+  it('move data', async function () {
+    const moveToRange = 123456789
+    const dataToMove = testData7
+    const newData = {
+      ...dataToMove,
+      [rangeKey]: moveToRange
+    }
+    await rangebaseDb.move(partitionName, newData)
+
+    const queriedOldRangeData = await rangebaseDb.query(
+      partitionName,
+      dataToMove[rangeKey]
+    )
+    const oldDataFromQuery = queriedOldRangeData.find(
+      data => data[idKey] === dataToMove[idKey]
+    )
+    expect(oldDataFromQuery).equal(undefined)
+
+    const queriedNewRangeData = await rangebaseDb.query(
+      partitionName,
+      moveToRange
+    )
+    const newDataFromQuery = queriedNewRangeData.find(
+      data => data[idKey] === dataToMove[idKey]
+    )
+    expect(newDataFromQuery).eql(newData)
+  })
 })
