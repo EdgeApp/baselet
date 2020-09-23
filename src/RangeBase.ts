@@ -17,6 +17,7 @@ export interface RangeBase {
     rangeEnd?: number
   ): Promise<any[]>
   queryById(partition: string, idKey: string): Promise<any>
+  delete(partition: string, idKey: string): Promise<any>
 }
 
 export interface RangeBaseData {
@@ -127,10 +128,16 @@ export function openRangeBase(
     return openHashBase(disklet, configData.idDatabaseName).then(idDb => {
       /**
        * Finds an item in the database partition for a given id.
+       * If the `remove` flag is true then if the item is found, it will be deleted.
        * @param partition
        * @param id
+       * @param remove Flag to delete the found item from the database
        */
-      function find(partition: string, id: string): Promise<any> {
+      function find(
+        partition: string,
+        id: string,
+        remove = false
+      ): Promise<any> {
         return idDb.query(partition, [id]).then(([range]) => {
           if (range == null) return
 
@@ -161,7 +168,20 @@ export function openRangeBase(
                 lastRangeOccurence.index
               )
               if (targetIndex.found) {
-                return bucketData[targetIndex.index]
+                if (remove) {
+                  // Remove from the id table and bucket, then save and return removed data
+                  return idDb.delete(partition, [id]).then(() => {
+                    const [removedData] = bucketData.splice(
+                      targetIndex.index,
+                      1
+                    )
+                    return disklet
+                      .setText(bucketPath, JSON.stringify(bucketData))
+                      .then(() => removedData)
+                  })
+                } else {
+                  return bucketData[targetIndex.index]
+                }
               }
             })
         })
@@ -331,6 +351,9 @@ export function openRangeBase(
         },
         queryById(partition: string, id: string): Promise<any> {
           return find(partition, id)
+        },
+        delete(partition: string, id: string): Promise<any> {
+          return find(partition, id, true)
         }
       }
 

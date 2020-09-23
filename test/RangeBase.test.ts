@@ -122,4 +122,13 @@ describe('RangeBase baselet', function () {
     const data5 = await rangebaseDb.queryById(partitionName, testData5[idKey])
     expect(data5).to.eql(testData5)
   })
+  it('delete data', async function () {
+    const dataToDelete = testData4
+    await rangebaseDb.delete(partitionName, dataToDelete[idKey])
+    const queriedData = await rangebaseDb.queryById(
+      partitionName,
+      dataToDelete[idKey]
+    )
+    expect(queriedData).equal(undefined)
+  })
 })
