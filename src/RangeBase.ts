@@ -249,15 +249,10 @@ export function openRangeBase(
           if (range == null) return
 
           const { bucketSize, rangeKey, idKey } = configData
-          const formattedPartition = checkAndformatPartition(partition)
           const bucketNumber = Math.floor(range / bucketSize)
-          const bucketFilename = `${bucketNumber}.json`
-          const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
 
-          return disklet
-            .getText(bucketPath)
-            .then((rawBucketData: string) => JSON.parse(rawBucketData))
-            .then((bucketData: any[]) => {
+          return fetchBucketData(partition, bucketNumber).then(
+            (bucketData: any[]) => {
               const firstRangeOccurence = getIndex(range, rangeKey, bucketData)
               const lastRangeOccurence = getIndex(
                 range,
@@ -282,7 +277,7 @@ export function openRangeBase(
                       targetIndex.index,
                       1
                     )
-                    return saveBucket(bucketPath, bucketData)
+                    return saveBucket(partition, bucketNumber, bucketData)
                       .then(() => updateMinMax(partition, removedData, true))
                       .then(() => removedData)
                   })
@@ -290,11 +285,38 @@ export function openRangeBase(
                   return bucketData[targetIndex.index]
                 }
               }
-            })
+            }
+          )
         })
       }
 
-      function saveBucket(path: string, data: any[]): Promise<unknown> {
+      /**
+       * Fetches the data from a bucket. If the bucket file does not exists, it returns an empty array.
+       * @param partition
+       * @param num Bucket number to fetch
+       * @return Array of items from the bucket
+       */
+      function fetchBucketData(partition: string, num: number): Promise<any[]> {
+        const formattedPartition = checkAndformatPartition(partition)
+        return disklet
+          .getText(`${databaseName}${formattedPartition}/${num}.json`)
+          .catch(() => '[]')
+          .then(JSON.parse)
+      }
+
+      /**
+       * Saves the data to a bucket.
+       * @param partition
+       * @param num Bucket number to fetch
+       * @param data Array of items to save
+       */
+      function saveBucket(
+        partition: string,
+        num: number,
+        data: any[]
+      ): Promise<unknown> {
+        const formattedPartition = checkAndformatPartition(partition)
+        const path = `${databaseName}${formattedPartition}/${num}.json`
         if (data.length === 0) {
           return disklet.delete(path)
         } else {
@@ -305,7 +327,6 @@ export function openRangeBase(
       const fns: RangeBase = {
         insert(partition: string, data: any): Promise<unknown> {
           const { bucketSize, rangeKey, idKey } = configData
-          const formattedPartition = checkAndformatPartition(partition)
           if (
             !(
               Object.prototype.hasOwnProperty.call(data, rangeKey) &&
@@ -324,15 +345,10 @@ export function openRangeBase(
             }
 
             const bucketNumber = Math.floor(data[rangeKey] / bucketSize)
-            const bucketFilename = `${bucketNumber}.json`
-            const bucketPath = `${databaseName}${formattedPartition}/${bucketFilename}`
-
             return (
-              disklet
-                .getText(bucketPath)
+              fetchBucketData(partition, bucketNumber)
                 .then(
-                  serializedBucket => {
-                    const bucketData: any[] = JSON.parse(serializedBucket)
+                  bucketData => {
                     const firstRangeOccurence = getIndex(
                       data[rangeKey],
                       rangeKey,
@@ -358,11 +374,11 @@ export function openRangeBase(
                       )
                       bucketData.splice(targetIndex.index, 0, data)
                     }
-                    return saveBucket(bucketPath, bucketData)
+                    return saveBucket(partition, bucketNumber, bucketData)
                   },
                   () => {
                     // assuming bucket doesnt exist
-                    return saveBucket(bucketPath, [data])
+                    return saveBucket(partition, bucketNumber, [data])
                   }
                 )
                 // Save the id
@@ -377,7 +393,6 @@ export function openRangeBase(
           rangeEnd: number = rangeStart
         ): Promise<any[]> {
           const { bucketSize, rangeKey } = configData
-          const formattedPartition = checkAndformatPartition(partition)
           const bucketFetchers: any[] = []
 
           if (rangeEnd < rangeStart) {
@@ -389,16 +404,7 @@ export function openRangeBase(
             bucketNumber <= Math.floor(rangeEnd / bucketSize);
             bucketNumber++
           ) {
-            bucketFetchers.push(
-              disklet
-                .getText(
-                  `${databaseName}${formattedPartition}/${bucketNumber}.json`
-                )
-                .then(
-                  rawBucketData => JSON.parse(rawBucketData),
-                  () => []
-                )
-            )
+            bucketFetchers.push(fetchBucketData(partition, bucketNumber))
           }
 
           return Promise.all(bucketFetchers).then(bucketList => {
