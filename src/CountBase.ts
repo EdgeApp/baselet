@@ -125,17 +125,6 @@ export function openCountBase(
         rangeEnd: number = rangeStart
       ): Promise<any[]> {
         const formattedPartition = checkAndformatPartition(partition)
-        const partitionMetadata = configData.partitions[formattedPartition]
-        if (partitionMetadata === undefined) {
-          return Promise.reject(
-            new Error(`Partition ${formattedPartition} does not exist.`)
-          )
-        }
-        if (partitionMetadata.length === 0) {
-          return Promise.reject(
-            new Error(`Partition ${formattedPartition} is empty.`)
-          )
-        }
         // sanity check the range
         const bucketFetchers = []
         for (
