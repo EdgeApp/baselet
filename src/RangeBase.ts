@@ -19,6 +19,8 @@ export interface RangeBase {
   queryById(partition: string, idKey: string): Promise<any>
   delete(partition: string, idKey: string): Promise<any>
   move(partition: string, newData: any): Promise<unknown>
+  min(partition: string): undefined | number
+  max(partition: string): undefined | number
 }
 
 export interface RangeBaseData {
@@ -31,6 +33,15 @@ interface RangeBaseConfig extends BaseletConfig {
   rangeKey: string
   idKey: string
   idPrefixLength: number
+  limits: PartitionLimits
+}
+
+interface PartitionLimits {
+  [partition: string]: undefined | PartitionLimit
+}
+interface PartitionLimit {
+  minRange?: number
+  maxRange?: number
 }
 
 export function openRangeBase(
@@ -129,6 +140,100 @@ export function openRangeBase(
 
     return openHashBase(disklet, configData.idDatabaseName).then(idDb => {
       /**
+       * Calculate and save the new minimum or maximum range limit for a partition.
+       * @param partition
+       * @param max
+       */
+      function findNewLimit(
+        partition: string,
+        max: boolean
+      ): Promise<number | undefined> {
+        const { rangeKey } = configData
+
+        const formattedPartition = checkAndformatPartition(partition)
+        const partitionPath = `${databaseName}${formattedPartition}`
+        return disklet.list(partitionPath).then(list => {
+          let limitBucketNumber: number | undefined
+          for (const path in list) {
+            if (/config\.json$/.test(path)) continue
+
+            const chucks = path.split('/')
+            const bucketNumber = Number(chucks[chucks.length - 1].split('.')[0])
+            if (limitBucketNumber == null) {
+              limitBucketNumber = bucketNumber
+            } else if (max) {
+              if (bucketNumber > limitBucketNumber) {
+                limitBucketNumber = bucketNumber
+              }
+            } else {
+              if (bucketNumber < limitBucketNumber) {
+                limitBucketNumber = bucketNumber
+              }
+            }
+          }
+
+          // If this is still not set then no buckets were found.
+          if (limitBucketNumber == null) return
+
+          return disklet
+            .getText(`${partitionPath}/${limitBucketNumber}.json`)
+            .then(rawBucketData => JSON.parse(rawBucketData))
+            .then(bucketData => {
+              const index = max ? bucketData.length - 1 : 0
+              return Number(bucketData[index][rangeKey])
+            })
+        })
+      }
+
+      /**
+       * Updates the config file with the most up to date min or max value.
+       * The data object passed in should already have been saved/deleted from the database.
+       * @param partition
+       * @param data
+       * @param deleted
+       */
+      function updateMinMax(
+        partition: string,
+        data: any,
+        deleted: boolean
+      ): Promise<unknown> | undefined {
+        const { rangeKey, limits } = configData
+        const range: number = data[rangeKey]
+        const partitionLimits = limits[partition] ?? (limits[partition] = {})
+
+        if (deleted) {
+          // Check if this item was the only one at the min or max range
+          const isMin = range === partitionLimits.minRange
+          const isMax = range === partitionLimits.maxRange
+          if (isMin || isMax) {
+            return fns.query(partition, range).then(items => {
+              // If it was, find what the new min or max is supposed to be and save it in the config
+              if (items.length === 0) {
+                return findNewLimit(partition, isMax).then(minOrMax => {
+                  if (isMin) {
+                    partitionLimits.minRange = minOrMax
+                  }
+                  if (isMax) {
+                    partitionLimits.maxRange = minOrMax
+                  }
+                  return updateConfig(disklet, databaseName, configData)
+                })
+              }
+            })
+          }
+        } else {
+          const { minRange, maxRange } = partitionLimits
+          if (minRange == null || range < minRange) {
+            partitionLimits.minRange = range
+          }
+          if (maxRange == null || range > maxRange) {
+            partitionLimits.maxRange = range
+          }
+          return updateConfig(disklet, databaseName, configData)
+        }
+      }
+
+      /**
        * Finds an item in the database partition for a given id.
        * If the `remove` flag is true then if the item is found, it will be deleted.
        * @param partition
@@ -177,8 +282,8 @@ export function openRangeBase(
                       targetIndex.index,
                       1
                     )
-                    return disklet
-                      .setText(bucketPath, JSON.stringify(bucketData))
+                    return saveBucket(bucketPath, bucketData)
+                      .then(() => updateMinMax(partition, removedData, true))
                       .then(() => removedData)
                   })
                 } else {
@@ -187,6 +292,14 @@ export function openRangeBase(
               }
             })
         })
+      }
+
+      function saveBucket(path: string, data: any[]): Promise<unknown> {
+        if (data.length === 0) {
+          return disklet.delete(path)
+        } else {
+          return disklet.setText(path, JSON.stringify(data))
+        }
       }
 
       const fns: RangeBase = {
@@ -245,18 +358,16 @@ export function openRangeBase(
                       )
                       bucketData.splice(targetIndex.index, 0, data)
                     }
-                    return disklet.setText(
-                      bucketPath,
-                      JSON.stringify(bucketData)
-                    )
+                    return saveBucket(bucketPath, bucketData)
                   },
                   () => {
                     // assuming bucket doesnt exist
-                    return disklet.setText(bucketPath, JSON.stringify([data]))
+                    return saveBucket(bucketPath, [data])
                   }
                 )
                 // Save the id
                 .then(() => idDb.insert(partition, data[idKey], data[rangeKey]))
+                .then(() => updateMinMax(partition, data, false))
             )
           })
         },
@@ -361,12 +472,26 @@ export function openRangeBase(
           return Promise.resolve()
             .then(() => fns.delete(partition, newData[configData.idKey]))
             .then(() => fns.insert(partition, newData))
+        },
+        min(partition: string): undefined | number {
+          return configData.limits[partition]?.minRange
+        },
+        max(partition: string): undefined | number {
+          return configData.limits[partition]?.maxRange
         }
       }
 
       return fns
     })
   })
+}
+
+function updateConfig(
+  disklet: Disklet,
+  databaseName: string,
+  config: RangeBaseConfig
+): Promise<unknown> {
+  return disklet.setText(`${databaseName}/config.json`, JSON.stringify(config))
 }
 
 export function createRangeBase(
@@ -388,6 +513,7 @@ export function createRangeBase(
     rangeKey,
     idKey,
     idPrefixLength,
+    limits: {}
   }
 
   return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
@@ -395,14 +521,8 @@ export function createRangeBase(
       throw new Error(`database ${databaseName} already exists`)
     }
 
-    return createHashBase(
-      disklet,
-      configData.idDatabaseName,
-      idPrefixLength
-    ).then(idHashBase => {
-      return disklet
-        .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-        .then(() => openRangeBase(disklet, databaseName))
-    })
+    return createHashBase(disklet, configData.idDatabaseName, idPrefixLength)
+      .then(() => updateConfig(disklet, databaseName, configData))
+      .then(() => openRangeBase(disklet, databaseName))
   })
 }

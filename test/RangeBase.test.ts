@@ -64,7 +64,8 @@ describe('RangeBase baselet', function () {
       idDatabaseName,
       rangeKey,
       idKey,
-      idPrefixLength
+      idPrefixLength,
+      limits: {}
     }
     rangebaseDb = await createRangeBase(
       disklet,
@@ -160,5 +161,92 @@ describe('RangeBase baselet', function () {
       data => data[idKey] === dataToMove[idKey]
     )
     expect(newDataFromQuery).eql(newData)
+  })
+})
+
+describe('RangeBase min/max limits', function () {
+  const disklet = makeMemoryDisklet()
+  let rangebaseDb: RangeBase
+  const dbName = 'testRangedb'
+  const bucketSize = 3
+  const rangeKey = 'createdAt'
+  const idKey = 'id'
+  const idPrefixLength = 4
+  const partitionName = 'transactions'
+  const testData1: RangeBaseData = {
+    [rangeKey]: 0,
+    [idKey]: 'abcd-efgh-ijkl-mnop',
+    input: 'btc',
+    output: 'eth'
+  }
+  const testData2: RangeBaseData = {
+    [rangeKey]: 2,
+    [idKey]: 'bytc-efgh-ijkl-mnop',
+    input: 'ltc',
+    output: 'eth'
+  }
+  const testData3: RangeBaseData = {
+    [rangeKey]: 4,
+    [idKey]: 'abcd-hitk-ijkl-mnop',
+    input: 'eth',
+    output: 'bat'
+  }
+  const testData4: RangeBaseData = {
+    [rangeKey]: 5,
+    [idKey]: 'zbcd-efgh-ijkl-dfop',
+    input: 'bat',
+    output: 'btc'
+  }
+
+  before('setup', async function () {
+    rangebaseDb = await createRangeBase(
+      disklet,
+      dbName,
+      bucketSize,
+      rangeKey,
+      idKey,
+      idPrefixLength
+    )
+  })
+
+  function testMinMax(min: any, max: any): void {
+    expect(rangebaseDb.min(partitionName)).equal(min)
+    expect(rangebaseDb.max(partitionName)).equal(max)
+  }
+
+  it('should have undefined min and max values', function () {
+    testMinMax(undefined, undefined)
+  })
+
+  describe('inserting data', function () {
+    it('should be able to calculate the max range value', async function () {
+      await rangebaseDb.insert(partitionName, testData2)
+      testMinMax(testData2[rangeKey], testData2[rangeKey])
+
+      await rangebaseDb.insert(partitionName, testData1)
+      testMinMax(testData1[rangeKey], testData2[rangeKey])
+
+      await rangebaseDb.insert(partitionName, testData4)
+      testMinMax(testData1[rangeKey], testData4[rangeKey])
+
+      await rangebaseDb.insert(partitionName, testData3)
+      testMinMax(testData1[rangeKey], testData4[rangeKey])
+    })
+  })
+
+  describe('deleting data', function () {
+    it('should be able to calculate the max range value', async function () {
+      await rangebaseDb.delete(partitionName, testData1[idKey])
+      testMinMax(testData2[rangeKey], testData4[rangeKey])
+
+      await rangebaseDb.delete(partitionName, testData4[idKey])
+      testMinMax(testData2[rangeKey], testData3[rangeKey])
+
+      await rangebaseDb.delete(partitionName, testData3[idKey])
+      testMinMax(testData2[rangeKey], testData2[rangeKey])
+
+      await rangebaseDb.delete(partitionName, testData2[idKey])
+      testMinMax(undefined, undefined)
+    })
   })
 })
