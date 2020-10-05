@@ -138,29 +138,27 @@ describe('RangeBase baselet', function () {
   it('move data', async function () {
     const moveToRange = 123456789
     const dataToMove = testData7
-    const newData = {
+    const expectedUpdatedData = {
       ...dataToMove,
       [rangeKey]: moveToRange
     }
-    await rangebaseDb.move(partitionName, newData)
+    await rangebaseDb.move(partitionName, dataToMove[idKey], moveToRange)
 
-    const queriedOldRangeData = await rangebaseDb.query(
+    const queriedData = await rangebaseDb.queryById(
       partitionName,
-      dataToMove[rangeKey]
+      dataToMove[idKey]
     )
-    const oldDataFromQuery = queriedOldRangeData.find(
-      data => data[idKey] === dataToMove[idKey]
-    )
-    expect(oldDataFromQuery).equal(undefined)
+    expect(queriedData).to.eql(expectedUpdatedData)
+  })
+  it('cant move data that does not exist', async function () {
+    let failed = false
+    try {
+      await rangebaseDb.move(partitionName, 'invalid-key', 11111111)
+    } catch {
+      failed = true
+    }
 
-    const queriedNewRangeData = await rangebaseDb.query(
-      partitionName,
-      moveToRange
-    )
-    const newDataFromQuery = queriedNewRangeData.find(
-      data => data[idKey] === dataToMove[idKey]
-    )
-    expect(newDataFromQuery).eql(newData)
+    expect(failed).to.equal(true)
   })
 })
 

@@ -18,7 +18,7 @@ export interface RangeBase {
   ): Promise<any[]>
   queryById(partition: string, idKey: string): Promise<any>
   delete(partition: string, idKey: string): Promise<any>
-  move(partition: string, newData: any): Promise<unknown>
+  move(partition: string, id: string, newRange: number): Promise<unknown>
   min(partition: string): undefined | number
   max(partition: string): undefined | number
 }
@@ -248,41 +248,31 @@ export function openRangeBase(
         return idDb.query(partition, [id]).then(([range]) => {
           if (range == null) return
 
-          const { bucketSize, rangeKey, idKey } = configData
+          const { bucketSize, idKey } = configData
           const bucketNumber = Math.floor(range / bucketSize)
 
           return fetchBucketData(partition, bucketNumber).then(
             (bucketData: any[]) => {
-              const firstRangeOccurence = getIndex(range, rangeKey, bucketData)
-              const lastRangeOccurence = getIndex(
-                range,
-                rangeKey,
-                bucketData,
-                firstRangeOccurence.index,
-                bucketData.length - 1,
-                true
-              )
-              const targetIndex = getIndex(
-                id,
-                idKey,
-                bucketData,
-                firstRangeOccurence.index,
-                lastRangeOccurence.index
-              )
-              if (targetIndex.found) {
+              let found = false
+              let index: number
+              for (index = 0; index < bucketData.length; index++) {
+                const data = bucketData[index]
+                if (data[idKey] === id) {
+                  found = true
+                  break
+                }
+              }
+              if (found) {
                 if (remove) {
                   // Remove from the id table and bucket, then save and return removed data
-                  return idDb.delete(partition, [id]).then(() => {
-                    const [removedData] = bucketData.splice(
-                      targetIndex.index,
-                      1
-                    )
-                    return saveBucket(partition, bucketNumber, bucketData)
-                      .then(() => updateMinMax(partition, removedData, true))
-                      .then(() => removedData)
-                  })
+                  const [removedData] = bucketData.splice(index, 1)
+                  return idDb
+                    .delete(partition, [id])
+                    .then(() => saveBucket(partition, bucketNumber, bucketData))
+                    .then(() => updateMinMax(partition, removedData, true))
+                    .then(() => removedData)
                 } else {
-                  return bucketData[targetIndex.index]
+                  return bucketData[index]
                 }
               }
             }
@@ -474,10 +464,28 @@ export function openRangeBase(
         delete(partition: string, id: string): Promise<any> {
           return find(partition, id, true)
         },
-        move(partition: string, newData: any): Promise<unknown> {
+        move(
+          partition: string,
+          id: string,
+          newRange: number
+        ): Promise<unknown> {
           return Promise.resolve()
-            .then(() => fns.delete(partition, newData[configData.idKey]))
-            .then(() => fns.insert(partition, newData))
+            .then(() => {
+              return fns.queryById(partition, id).then(data => {
+                if (data == null) {
+                  throw new Error(
+                    'Cannot move an element that does not exists.'
+                  )
+                }
+              })
+            })
+            .then(() => fns.delete(partition, id))
+            .then(data =>
+              fns.insert(partition, {
+                ...data,
+                [configData.rangeKey]: newRange
+              })
+            )
         },
         min(partition: string): undefined | number {
           return configData.limits[partition]?.minRange
