@@ -32,6 +32,10 @@ describe('CountBase baselet', function () {
     countbaseDb = await createCountBase(disklet, dbName, dbBucketSize)
     expect(await disklet.getText(`${dbName}/config.json`)).equals(expectedTest)
   })
+  it('empty data', async function () {
+    const [data] = await countbaseDb.query(partitionName, 0)
+    expect(data).equal(undefined)
+  })
   it('insert data', async function () {
     for (let i = 0; i < dataSet.length; i++) {
       const data = dataSet[i]

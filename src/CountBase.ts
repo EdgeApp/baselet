@@ -72,55 +72,52 @@ export function openCountBase(
 
         const bucketNumber = Math.floor(index / configData.bucketSize)
         const bucketIndex = index % configData.bucketSize
-        const bucketExists = bucketIndex !== 0
         const bucketPath = `${databaseName}${formattedPartition}/${bucketNumber}.json`
         if (index === nextIndex) {
           ++partitionMetadata.length
           writeConfig = true
         }
-        if (bucketExists) {
-          return disklet
-            .getText(bucketPath)
-            .then(currentBucketDataRaw => {
+        return disklet
+          .getText(bucketPath)
+          .then(
+            currentBucketDataRaw => {
               const currentBucketData = JSON.parse(currentBucketDataRaw)
               currentBucketData[bucketIndex] = data
               return disklet.setText(
                 bucketPath,
                 JSON.stringify(currentBucketData)
               )
-            })
-            .then(() => {
-              configData.partitions[formattedPartition] = partitionMetadata
-              if (writeConfig === true) {
-                return disklet.setText(
-                  `${databaseName}/config.json`,
-                  JSON.stringify(configData)
-                )
-              } else {
-                return Promise.resolve()
-              }
-            })
-            .catch(error => {
-              throw new Error(`Could not insert data. ${error}`)
-            })
-        } else {
-          return disklet
-            .setText(bucketPath, JSON.stringify([data]))
-            .then(() => {
-              configData.partitions[formattedPartition] = partitionMetadata
-              if (writeConfig === true) {
-                return disklet.setText(
-                  `${databaseName}/config.json`,
-                  JSON.stringify(configData)
-                )
-              } else {
-                return Promise.resolve()
-              }
-            })
-            .catch(error => {
-              throw new Error(`Could not insert data. ${error}`)
-            })
-        }
+            },
+            () => {
+              return disklet
+                .setText(bucketPath, JSON.stringify([data]))
+                .then(() => {
+                  configData.partitions[formattedPartition] = partitionMetadata
+                  if (writeConfig === true) {
+                    return disklet.setText(
+                      `${databaseName}/config.json`,
+                      JSON.stringify(configData)
+                    )
+                  } else {
+                    return Promise.resolve()
+                  }
+                })
+            }
+          )
+          .then(() => {
+            configData.partitions[formattedPartition] = partitionMetadata
+            if (writeConfig === true) {
+              return disklet.setText(
+                `${databaseName}/config.json`,
+                JSON.stringify(configData)
+              )
+            } else {
+              return Promise.resolve()
+            }
+          })
+          .catch(error => {
+            throw new Error(`Could not insert data. ${error}`)
+          })
       },
       query(
         partition: string,
@@ -128,17 +125,6 @@ export function openCountBase(
         rangeEnd: number = rangeStart
       ): Promise<any[]> {
         const formattedPartition = checkAndformatPartition(partition)
-        const partitionMetadata = configData.partitions[formattedPartition]
-        if (partitionMetadata === undefined) {
-          return Promise.reject(
-            new Error(`Partition ${formattedPartition} does not exist.`)
-          )
-        }
-        if (partitionMetadata.length === 0) {
-          return Promise.reject(
-            new Error(`Partition ${formattedPartition} is empty.`)
-          )
-        }
         // sanity check the range
         const bucketFetchers = []
         for (
@@ -172,10 +158,7 @@ export function openCountBase(
       length(partition: string): number {
         const formattedPartition = checkAndformatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
-        if (partitionMetadata === undefined) {
-          throw new Error('No partition found with that name')
-        }
-        return partitionMetadata.length
+        return partitionMetadata?.length ?? 0
       }
     }
   })
