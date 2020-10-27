@@ -253,36 +253,39 @@ export function openRangeBase(
 
           return fetchBucketData(partition, bucketNumber).then(
             (bucketData: any[]) => {
-              const firstRangeOccurence = getIndex(range, rangeKey, bucketData)
-              const lastRangeOccurence = getIndex(
-                range,
-                rangeKey,
-                bucketData,
-                firstRangeOccurence.index,
-                bucketData.length - 1,
-                true
-              )
-              const targetIndex = getIndex(
-                id,
-                idKey,
-                bucketData,
-                firstRangeOccurence.index,
-                lastRangeOccurence.index
-              )
-              if (targetIndex.found) {
-                if (remove) {
-                  // Remove from the id table and bucket, then save and return removed data
-                  return idDb.delete(partition, [id]).then(() => {
-                    const [removedData] = bucketData.splice(
-                      targetIndex.index,
-                      1
-                    )
-                    return saveBucket(partition, bucketNumber, bucketData)
+              const firstRangeOccurrence = getIndex(range, rangeKey, bucketData)
+              if (firstRangeOccurrence.found) {
+                const lastRangeOccurrence = getIndex(
+                  range,
+                  rangeKey,
+                  bucketData,
+                  firstRangeOccurrence.index,
+                  bucketData.length - 1,
+                  true
+                )
+                let found = false
+                let index = firstRangeOccurrence.index
+                for (; index <= lastRangeOccurrence.index; index++) {
+                  const data = bucketData[index]
+                  if (data[idKey] === id) {
+                    found = true
+                    break
+                  }
+                }
+                if (found) {
+                  if (remove) {
+                    // Remove from the id table and bucket, then save and return removed data
+                    const [removedData] = bucketData.splice(index, 1)
+                    return idDb
+                      .delete(partition, [id])
+                      .then(() =>
+                        saveBucket(partition, bucketNumber, bucketData)
+                      )
                       .then(() => updateMinMax(partition, removedData, true))
                       .then(() => removedData)
-                  })
-                } else {
-                  return bucketData[targetIndex.index]
+                  } else {
+                    return bucketData[index]
+                  }
                 }
               }
             }
@@ -349,19 +352,19 @@ export function openRangeBase(
               fetchBucketData(partition, bucketNumber)
                 .then(
                   bucketData => {
-                    const firstRangeOccurence = getIndex(
+                    const firstRangeOccurrence = getIndex(
                       data[rangeKey],
                       rangeKey,
                       bucketData
                     )
-                    if (firstRangeOccurence.found === false) {
-                      bucketData.splice(firstRangeOccurence.index, 0, data)
+                    if (firstRangeOccurrence.found === false) {
+                      bucketData.splice(firstRangeOccurrence.index, 0, data)
                     } else {
-                      const lastRangeOccurence = getIndex(
+                      const lastRangeOccurrence = getIndex(
                         data[rangeKey],
                         rangeKey,
                         bucketData,
-                        firstRangeOccurence.index,
+                        firstRangeOccurrence.index,
                         bucketData.length - 1,
                         true
                       )
@@ -369,8 +372,8 @@ export function openRangeBase(
                         data[idKey],
                         idKey,
                         bucketData,
-                        firstRangeOccurence.index,
-                        lastRangeOccurence.index
+                        firstRangeOccurrence.index,
+                        lastRangeOccurrence.index
                       )
                       bucketData.splice(targetIndex.index, 0, data)
                     }
