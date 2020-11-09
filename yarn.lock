@@ -2883,10 +2883,10 @@ make-fetch-happen@^8.0.9:
     socks-proxy-agent "^5.0.0"
     ssri "^8.0.0"
 
-memlet@^0.0.1:
-  version "0.0.1"
-  resolved "https://registry.yarnpkg.com/memlet/-/memlet-0.0.1.tgz#9f64695e07daa8ff8fe2ff3dda7b4dd9c779bc24"
-  integrity sha512-L2UHAnQt+j4wtpREkWMPqlbjMAlX1udiFxVG03wWeCjgsnE46bm/B0bYqYRhUjw5rtaDBQfUXKnJ6CtBJELLXQ==
+memlet@^0.0.2:
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/memlet/-/memlet-0.0.2.tgz#4ffbcaed34dd52a4e2de86355a7a03a60d797441"
+  integrity sha512-i08L5xA3z16d4M+L93cyHM1JJAEOX56B7ccqTLJ7tbuqKn1a/i0XGX6Tl0J6wu9vlBY5crTw3i+RM1u9IhnC6w==
   dependencies:
     disklet "^0.4.5"
 
