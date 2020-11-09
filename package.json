@@ -22,7 +22,7 @@
   "main": "lib/baselet.cjs.js",
   "module": "lib/baselet.js",
   "browser": "lib/baselet.web.js",
-  "types": "lib/src/index.d.ts",
+  "types": "lib/index.d.ts",
   "scripts": {
     "fix": "npm run lint -- --fix",
     "lint": "eslint .",
