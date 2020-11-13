@@ -2,6 +2,7 @@ import { expect } from 'chai'
 import { makeMemoryDisklet } from 'disklet'
 import { describe, it } from 'mocha'
 
+import { getBucketPath, getConfig } from '../src/helpers'
 import { createRangeBase, RangeBase, RangeBaseData } from '../src/RangeBase'
 import { BaseType } from '../src/types'
 
@@ -75,7 +76,7 @@ describe('RangeBase baselet', function () {
       idKey,
       idPrefixLength
     )
-    const config = JSON.parse(await disklet.getText(`${dbName}/config.json`))
+    const config = await getConfig(disklet, dbName)
     expect(config).to.eql(expectedTest)
   })
   it('empty array', async () => {
@@ -92,13 +93,13 @@ describe('RangeBase baselet', function () {
     await rangebaseDb.insert(partitionName, testData7)
 
     const bucket = Math.floor(testData1[rangeKey] / bucketSize)
-    const storedBucket = JSON.parse(
-      await disklet.getText(`${dbName}/${partitionName}/${bucket}.json`)
+    const storedBucket = await disklet.getText(
+      getBucketPath(dbName, partitionName, bucket)
     )
-    const storedData = storedBucket.find(
+    const storedData = JSON.parse(storedBucket).find(
       (item: RangeBaseData) => item[idKey] === testData1[idKey]
     )
-    expect(JSON.stringify(storedData)).equals(JSON.stringify(testData1))
+    expect(storedData).eql(testData1)
   })
   it('duplicate data', async function () {
     let error
@@ -108,19 +109,19 @@ describe('RangeBase baselet', function () {
       error = err
     }
 
-    expect(error.message).equals('Cannot insert data because id already exists')
+    expect(error.message).eql('Cannot insert data because id already exists')
   })
   it('query data', async function () {
     const data1 = await rangebaseDb.query(partitionName, testData4[rangeKey])
-    expect(data1.length).equals(1)
-    expect(JSON.stringify(data1[0])).equals(JSON.stringify(testData4))
+    expect(data1.length).eql(1)
+    expect(data1[0]).eql(testData4)
     const data2 = await rangebaseDb.query(
       partitionName,
       testData3[rangeKey],
       testData6[rangeKey]
     )
-    expect(data2.length).equals(5)
-    expect(JSON.stringify(data2[0])).equals(JSON.stringify(testData3))
+    expect(data2.length).eql(5)
+    expect(data2[0]).eql(testData3)
   })
   it('query data by id', async function () {
     const data5 = await rangebaseDb.queryById(partitionName, testData5[idKey])

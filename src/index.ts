@@ -1,6 +1,11 @@
-import { openBase } from './common'
-import { createCountBase } from './CountBase'
-import { createHashBase } from './HashBase'
-import { createRangeBase } from './RangeBase'
+export {
+  setMemletConfig,
+  clearMemletCache,
+  resetMemletState,
+  _getMemletState
+} from 'memlet'
 
-export { createCountBase, createHashBase, createRangeBase, openBase }
+export { openBase } from './common'
+export { createCountBase } from './CountBase'
+export { createHashBase } from './HashBase'
+export { createRangeBase } from './RangeBase'

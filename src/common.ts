@@ -3,7 +3,7 @@ import { Disklet } from 'disklet'
 import { CountBase, openCountBase } from './CountBase'
 import { HashBase, openHashBase } from './HashBase'
 import { openRangeBase, RangeBase } from './RangeBase'
-import { BaseType } from './types'
+import { BaseletConfig, BaseType } from './types'
 
 export function openBase(
   disklet: Disklet,
@@ -11,7 +11,7 @@ export function openBase(
 ): Promise<CountBase | HashBase | RangeBase> {
   return disklet
     .getText(`${databaseName}/config.json`)
-    .then(serializedConfig => JSON.parse(serializedConfig))
+    .then(serializedConfig => JSON.parse(serializedConfig) as BaseletConfig)
     .then(configData => {
       let baselet: Promise<CountBase | HashBase | RangeBase>
       switch (configData.type) {

@@ -1,10 +1,14 @@
 import { Disklet } from 'disklet'
 
 import {
-  checkAndformatPartition,
+  checkAndFormatPartition,
   checkDatabaseName,
   doesDatabaseExist,
-  isPositiveInteger
+  getBucketPath,
+  getConfig,
+  getOrMakeMemlet,
+  isPositiveInteger,
+  setConfig
 } from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
@@ -31,31 +35,21 @@ export function openCountBase(
   disklet: Disklet,
   databaseName: string
 ): Promise<CountBase> {
-  function getConfig(): Promise<CountBaseConfig> {
-    return disklet.getText(`${databaseName}/config.json`).then(
-      serializedConfig => JSON.parse(serializedConfig),
-      error => {
-        console.log(error)
-        throw new Error(
-          `The disklet does not have a valid database ${databaseName}`
-        )
-      }
-    )
-  }
+  const memlet = getOrMakeMemlet(disklet)
 
-  return getConfig().then(configData => {
+  return getConfig<CountBaseConfig>(disklet, databaseName).then(configData => {
     if (configData.type !== BaseType.CountBase) {
       throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
     }
 
     return {
       insert(partition: string, index: number, data: any): Promise<unknown> {
-        const formattedPartition = checkAndformatPartition(partition)
-        let writeConfig = false
+        const formattedPartition = checkAndFormatPartition(partition)
+        let metadataChanged = false
         let partitionMetadata = configData.partitions[formattedPartition]
         if (partitionMetadata === undefined) {
           partitionMetadata = { length: 0 }
-          writeConfig = true
+          metadataChanged = true
         }
         const nextIndex = partitionMetadata.length
 
@@ -70,50 +64,30 @@ export function openCountBase(
           )
         }
 
-        const bucketNumber = Math.floor(index / configData.bucketSize)
-        const bucketIndex = index % configData.bucketSize
-        const bucketPath = `${databaseName}${formattedPartition}/${bucketNumber}.json`
         if (index === nextIndex) {
           ++partitionMetadata.length
-          writeConfig = true
+          metadataChanged = true
         }
-        return disklet
-          .getText(bucketPath)
+
+        const bucketNumber = Math.floor(index / configData.bucketSize)
+        const bucketPath = getBucketPath(databaseName, partition, bucketNumber)
+        return memlet
+          .getJson(bucketPath)
           .then(
-            currentBucketDataRaw => {
-              const currentBucketData = JSON.parse(currentBucketDataRaw)
-              currentBucketData[bucketIndex] = data
-              return disklet.setText(
-                bucketPath,
-                JSON.stringify(currentBucketData)
-              )
-            },
-            () => {
-              return disklet
-                .setText(bucketPath, JSON.stringify([data]))
-                .then(() => {
-                  configData.partitions[formattedPartition] = partitionMetadata
-                  if (writeConfig === true) {
-                    return disklet.setText(
-                      `${databaseName}/config.json`,
-                      JSON.stringify(configData)
-                    )
-                  } else {
-                    return Promise.resolve()
-                  }
-                })
-            }
+            currentBucketData => currentBucketData,
+            // Assume no bucket exists
+            () => []
           )
+          .then(existingData => {
+            const bucketIndex = index % configData.bucketSize
+            existingData[bucketIndex] = data
+            return memlet.setJson(bucketPath, existingData)
+          })
           .then(() => {
-            configData.partitions[formattedPartition] = partitionMetadata
-            if (writeConfig === true) {
-              return disklet.setText(
-                `${databaseName}/config.json`,
-                JSON.stringify(configData)
-              )
-            } else {
-              return Promise.resolve()
+            if (metadataChanged) {
+              configData.partitions[formattedPartition] = partitionMetadata
             }
+            return setConfig(disklet, databaseName, configData)
           })
           .catch(error => {
             throw new Error(`Could not insert data. ${error}`)
@@ -124,7 +98,6 @@ export function openCountBase(
         rangeStart: number = 0,
         rangeEnd: number = rangeStart
       ): Promise<any[]> {
-        const formattedPartition = checkAndformatPartition(partition)
         // sanity check the range
         const bucketFetchers = []
         for (
@@ -132,16 +105,12 @@ export function openCountBase(
           bucketNumber <= Math.floor(rangeEnd / configData.bucketSize);
           bucketNumber++
         ) {
-          bucketFetchers.push(
-            disklet
-              .getText(
-                `${databaseName}${formattedPartition}/${bucketNumber}.json`
-              )
-              .then(
-                rawBucketData => JSON.parse(rawBucketData),
-                () => []
-              )
+          const bucketPath = getBucketPath(
+            databaseName,
+            partition,
+            bucketNumber
           )
+          bucketFetchers.push(memlet.getJson(bucketPath).catch(() => []))
         }
         return Promise.all(bucketFetchers).then(bucketList => {
           const queryResults: any[] = []
@@ -156,7 +125,7 @@ export function openCountBase(
         })
       },
       length(partition: string): number {
-        const formattedPartition = checkAndformatPartition(partition)
+        const formattedPartition = checkAndFormatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
         return partitionMetadata?.length ?? 0
       }
@@ -172,22 +141,24 @@ export function createCountBase(
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
+
   databaseName = checkDatabaseName(databaseName)
-  const configData: CountBaseConfig = {
-    type: BaseType.CountBase,
-    bucketSize: Math.floor(bucketSize),
-    partitions: {
-      '': {
-        length: 0
-      }
-    }
-  }
   return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
     if (databaseExists) {
       throw new Error(`database ${databaseName} already exists`)
     }
-    return disklet
-      .setText(`${databaseName}/config.json`, JSON.stringify(configData))
-      .then(() => openCountBase(disklet, databaseName))
+
+    const configData: CountBaseConfig = {
+      type: BaseType.CountBase,
+      bucketSize: Math.floor(bucketSize),
+      partitions: {
+        '': {
+          length: 0
+        }
+      }
+    }
+    return setConfig(disklet, databaseName, configData).then(() =>
+      openCountBase(disklet, databaseName)
+    )
   })
 }

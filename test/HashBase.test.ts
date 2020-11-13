@@ -4,6 +4,7 @@ import { describe, it } from 'mocha'
 
 import { createHashBase, HashBase } from '../src/HashBase'
 import { BaseType } from '../src/types'
+import { getBucketPath, getConfig } from '../src/helpers'
 
 describe('HashBase baselet', function () {
   const disklet = makeMemoryDisklet()
@@ -20,12 +21,12 @@ describe('HashBase baselet', function () {
     { hash: 'xyxy-abcd-ijkl-ddop', input: 'bat', output: 'nexo' }
   ]
   it('create hashbase', async function () {
-    const expectedTest = JSON.stringify({
+    const expectedTest = {
       type: BaseType.HashBase,
       prefixSize
-    })
+    }
     hashbaseDb = await createHashBase(disklet, dbName, prefixSize)
-    expect(await disklet.getText(`${dbName}/config.json`)).equals(expectedTest)
+    expect(await getConfig(disklet, dbName)).eql(expectedTest)
   })
   it('insert data', async function () {
     for (let i = 0; i < dataSet.length; i++) {
@@ -34,11 +35,10 @@ describe('HashBase baselet', function () {
     }
     const prefix = dataSet[0].hash.substring(0, prefixSize)
     const storedData = await disklet.getText(
-      `${dbName}/${partitionName}/${prefix}.json`
+      getBucketPath(dbName, partitionName, prefix)
     )
-    expect(JSON.stringify(JSON.parse(storedData)[dataSet[0].hash])).equals(
-      JSON.stringify(dataSet[0])
-    )
+    // @ts-ignore
+    expect(JSON.parse(storedData)[dataSet[0].hash]).eql(dataSet[0])
   })
   it('query data', async function () {
     const queriedData1 = await hashbaseDb.query(partitionName, [
@@ -52,13 +52,9 @@ describe('HashBase baselet', function () {
       dataSet[4].hash,
       dataSet[3].hash
     ])
-    expect(JSON.stringify(queriedData1)).equals(JSON.stringify([dataSet[0]]))
-    expect(JSON.stringify(queriedData2)).equals(
-      JSON.stringify([dataSet[1], dataSet[2]])
-    )
-    expect(JSON.stringify(queriedData3)).equals(
-      JSON.stringify([dataSet[4], dataSet[3]])
-    )
+    expect(queriedData1).eql([dataSet[0]])
+    expect(queriedData2).eql([dataSet[1], dataSet[2]])
+    expect(queriedData3).eql([dataSet[4], dataSet[3]])
   })
   it('delete data', async function () {
     const dataToDelete = dataSet[dataSet.length - 1]
@@ -72,6 +68,6 @@ describe('HashBase baselet', function () {
     const [queriedData2] = await hashbaseDb.query(partitionName, [
       dataToDelete.hash
     ])
-    expect(queriedData2).equals(undefined)
+    expect(queriedData2).eql(undefined)
   })
 })

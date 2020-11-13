@@ -2,10 +2,15 @@ import { Disklet } from 'disklet'
 
 import { createHashBase, openHashBase } from './HashBase'
 import {
-  checkAndformatPartition,
   checkDatabaseName,
   doesDatabaseExist,
-  isPositiveInteger
+  getBucketPath,
+  getConfig,
+  getOrMakeMemlet,
+  getPartitionPath,
+  isMemlet,
+  isPositiveInteger,
+  setConfig
 } from './helpers'
 import { BaseletConfig, BaseType } from './types'
 
@@ -48,17 +53,7 @@ export function openRangeBase(
   disklet: Disklet,
   databaseName: string
 ): Promise<RangeBase> {
-  function getConfig(): Promise<RangeBaseConfig> {
-    return disklet.getText(`${databaseName}/config.json`).then(
-      serializedConfig => JSON.parse(serializedConfig),
-      error => {
-        console.log(error)
-        throw new Error(
-          `The disklet does not have a valid database ${databaseName}`
-        )
-      }
-    )
-  }
+  const memlet = getOrMakeMemlet(disklet)
 
   // uses binary search
   function getIndex(
@@ -133,12 +128,15 @@ export function openRangeBase(
     }
   }
 
-  return getConfig().then(configData => {
+  return getConfig<RangeBaseConfig>(disklet, databaseName).then(configData => {
     if (configData.type !== BaseType.RangeBase) {
       throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
     }
 
-    return openHashBase(disklet, configData.idDatabaseName).then(idDb => {
+    const idHashBasePromise = isMemlet(disklet)
+      ? openHashBase(disklet, configData.idDatabaseName)
+      : openHashBase(disklet, configData.idDatabaseName, memletConfig)
+    return idHashBasePromise.then(idDb => {
       /**
        * Calculate and save the new minimum or maximum range limit for a partition.
        * @param partition
@@ -150,9 +148,8 @@ export function openRangeBase(
       ): Promise<number | undefined> {
         const { rangeKey } = configData
 
-        const formattedPartition = checkAndformatPartition(partition)
-        const partitionPath = `${databaseName}${formattedPartition}`
-        return disklet.list(partitionPath).then(list => {
+        const partitionPath = getPartitionPath(databaseName, partition)
+        return memlet.list(partitionPath).then(list => {
           let limitBucketNumber: number | undefined
           for (const path in list) {
             if (/config\.json$/.test(path)) continue
@@ -175,13 +172,12 @@ export function openRangeBase(
           // If this is still not set then no buckets were found.
           if (limitBucketNumber == null) return
 
-          return disklet
-            .getText(`${partitionPath}/${limitBucketNumber}.json`)
-            .then(rawBucketData => JSON.parse(rawBucketData))
-            .then(bucketData => {
+          return fetchBucketData(partition, limitBucketNumber).then(
+            bucketData => {
               const index = max ? bucketData.length - 1 : 0
               return Number(bucketData[index][rangeKey])
-            })
+            }
+          )
         })
       }
 
@@ -216,7 +212,7 @@ export function openRangeBase(
                   if (isMax) {
                     partitionLimits.maxRange = minOrMax
                   }
-                  return updateConfig(disklet, databaseName, configData)
+                  return setConfig(disklet, databaseName, configData)
                 })
               }
             })
@@ -229,7 +225,7 @@ export function openRangeBase(
           if (maxRange == null || range > maxRange) {
             partitionLimits.maxRange = range
           }
-          return updateConfig(disklet, databaseName, configData)
+          return setConfig(disklet, databaseName, configData)
         }
       }
 
@@ -297,11 +293,8 @@ export function openRangeBase(
        * @return Array of items from the bucket
        */
       function fetchBucketData(partition: string, num: number): Promise<any[]> {
-        const formattedPartition = checkAndformatPartition(partition)
-        return disklet
-          .getText(`${databaseName}${formattedPartition}/${num}.json`)
-          .catch(() => '[]')
-          .then(JSON.parse)
+        const path = getBucketPath(databaseName, partition, num)
+        return memlet.getJson(path).catch(() => [])
       }
 
       /**
@@ -315,12 +308,11 @@ export function openRangeBase(
         num: number,
         data: any[]
       ): Promise<unknown> {
-        const formattedPartition = checkAndformatPartition(partition)
-        const path = `${databaseName}${formattedPartition}/${num}.json`
+        const path = getBucketPath(databaseName, partition, num)
         if (data.length === 0) {
-          return disklet.delete(path)
+          return memlet.delete(path)
         } else {
-          return disklet.setText(path, JSON.stringify(data))
+          return memlet.setJson(path, data)
         }
       }
 
@@ -354,7 +346,7 @@ export function openRangeBase(
                       rangeKey,
                       bucketData
                     )
-                    if (firstRangeOccurence.found === false) {
+                    if (!firstRangeOccurence.found) {
                       bucketData.splice(firstRangeOccurence.index, 0, data)
                     } else {
                       const lastRangeOccurence = getIndex(
@@ -492,14 +484,6 @@ export function openRangeBase(
   })
 }
 
-function updateConfig(
-  disklet: Disklet,
-  databaseName: string,
-  config: RangeBaseConfig
-): Promise<unknown> {
-  return disklet.setText(`${databaseName}/config.json`, JSON.stringify(config))
-}
-
 export function createRangeBase(
   disklet: Disklet,
   databaseName: string,
@@ -512,23 +496,22 @@ export function createRangeBase(
     throw new Error(`bucketSize must be a number greater than 0`)
   }
   databaseName = checkDatabaseName(databaseName)
-  const configData: RangeBaseConfig = {
-    type: BaseType.RangeBase,
-    bucketSize: Math.floor(bucketSize),
-    idDatabaseName: `${databaseName}_ids`,
-    rangeKey,
-    idKey,
-    idPrefixLength,
-    limits: {}
-  }
-
   return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
     if (databaseExists) {
       throw new Error(`database ${databaseName} already exists`)
     }
 
+    const configData: RangeBaseConfig = {
+      type: BaseType.RangeBase,
+      bucketSize: Math.floor(bucketSize),
+      idDatabaseName: `${databaseName}_ids`,
+      rangeKey,
+      idKey,
+      idPrefixLength,
+      limits: {}
+    }
     return createHashBase(disklet, configData.idDatabaseName, idPrefixLength)
-      .then(() => updateConfig(disklet, databaseName, configData))
+      .then(() => setConfig(disklet, databaseName, configData))
       .then(() => openRangeBase(disklet, databaseName))
   })
 }
