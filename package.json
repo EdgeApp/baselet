@@ -21,7 +21,6 @@
   ],
   "main": "lib/baselet.cjs.js",
   "module": "lib/baselet.js",
-  "browser": "lib/baselet.web.js",
   "types": "lib/index.d.ts",
   "scripts": {
     "fix": "npm run lint -- --fix",
@@ -71,7 +70,6 @@
     "rollup": "^2.10.9",
     "rollup-plugin-babel": "^4.4.0",
     "rollup-plugin-filesize": "^9.0.0",
-    "rollup-plugin-flow-entry": "^0.3.4",
     "rollup-plugin-node-resolve": "^5.2.0",
     "sucrase": "^3.15.0",
     "tmp": "^0.2.1",
