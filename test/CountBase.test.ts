@@ -3,6 +3,7 @@ import { makeMemoryDisklet } from 'disklet'
 import { describe, it } from 'mocha'
 
 import { CountBase, createCountBase } from '../src/CountBase'
+import { getBucketPath, getConfig } from '../src/helpers'
 import { BaseType } from '../src/types'
 
 describe('CountBase baselet', function () {
@@ -20,7 +21,7 @@ describe('CountBase baselet', function () {
   ]
 
   it('create countbase', async function () {
-    const expectedTest = JSON.stringify({
+    const expectedTest = {
       type: BaseType.CountBase,
       bucketSize: dbBucketSize,
       partitions: {
@@ -28,9 +29,9 @@ describe('CountBase baselet', function () {
           length: 0
         }
       }
-    })
+    }
     countbaseDb = await createCountBase(disklet, dbName, dbBucketSize)
-    expect(await disklet.getText(`${dbName}/config.json`)).equals(expectedTest)
+    expect(await getConfig(disklet, dbName)).eql(expectedTest)
   })
   it('empty data', async function () {
     const [data] = await countbaseDb.query(partitionName, 0)
@@ -42,17 +43,13 @@ describe('CountBase baselet', function () {
       await countbaseDb.insert(partitionName, data.index, data)
     }
 
-    const storedConfig = await disklet.getText(`${dbName}/config.json`)
+    console.log()
+    const storedConfig = await getConfig(disklet, dbName)
     const bucketNumber = Math.floor(dataSet[0].index / dbBucketSize)
-    const storedData = await disklet.getText(
-      `${dbName}/${partitionName}/${bucketNumber}.json`
-    )
-    expect(
-      JSON.parse(storedConfig).partitions[`/${partitionName}`].length
-    ).equals(dataSet.length)
-    expect(JSON.stringify(JSON.parse(storedData)[dataSet[0].index])).equals(
-      JSON.stringify(dataSet[0])
-    )
+    const buckePath = getBucketPath(dbName, partitionName, bucketNumber)
+    const storedData = JSON.parse(await disklet.getText(buckePath))
+    expect(storedConfig.partitions[partitionName].length).eql(dataSet.length)
+    expect(storedData[dataSet[0].index]).eql(dataSet[0])
   })
   it('query data', async function () {
     const queriedData1 = await countbaseDb.query(
@@ -62,16 +59,12 @@ describe('CountBase baselet', function () {
     )
     const queriedData2 = await countbaseDb.query(partitionName, 3)
     const queriedData3 = await countbaseDb.query(partitionName, 3, 4)
-    expect(JSON.stringify(queriedData1)).equals(JSON.stringify(dataSet))
-    expect(JSON.stringify(queriedData2)).equals(
-      JSON.stringify(dataSet.slice(3, 4))
-    )
-    expect(JSON.stringify(queriedData3)).equals(
-      JSON.stringify(dataSet.slice(3, 5))
-    )
+    expect(queriedData1).eql(dataSet)
+    expect(queriedData2).eql(dataSet.slice(3, 4))
+    expect(queriedData3).eql(dataSet.slice(3, 5))
   })
   it('get length of partition', async function () {
     const partitionLength = await countbaseDb.length(partitionName)
-    expect(partitionLength).equals(dataSet.length)
+    expect(partitionLength).eql(dataSet.length)
   })
 })

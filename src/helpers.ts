@@ -1,21 +1,67 @@
 import { Disklet } from 'disklet'
+import { makeMemlet, Memlet } from 'memlet'
 
-export function checkAndformatPartition(partition: string = ''): string {
-  if (typeof partition !== 'string') {
-    throw new TypeError('partition must be of type string')
-  }
+export function isMemlet(object: Disklet | Memlet): object is Memlet {
+  return (
+    Object.prototype.hasOwnProperty.call(object, 'getJson') ||
+    Object.prototype.hasOwnProperty.call(object, 'setJson')
+  )
+}
+
+export function getOrMakeMemlet(storage: Disklet | Memlet): Memlet {
+  return isMemlet(storage) ? storage : makeMemlet(storage)
+}
+
+export function getPartitionPath(
+  databaseName: string,
+  partition: string
+): string {
+  return `${databaseName}/${checkAndFormatPartition(partition)}`
+}
+
+export function getBucketPath(
+  databaseName: string,
+  partition: string,
+  bucketName: string | number
+): string {
+  return `${getPartitionPath(databaseName, partition)}/${bucketName}.json`
+}
+
+export function getConfigPath(databaseName: string): string {
+  return `${databaseName}/config.json`
+}
+
+export function getConfig<T = any>(
+  disklet: Disklet,
+  databaseName: string
+): Promise<T> {
+  return disklet.getText(getConfigPath(databaseName)).then(JSON.parse)
+}
+
+export function setConfig(
+  disklet: Disklet,
+  databaseName: string,
+  configData: any
+): Promise<unknown> {
+  return disklet.setText(
+    getConfigPath(databaseName),
+    JSON.stringify(configData)
+  )
+}
+
+export function checkAndFormatPartition(partition: string = ''): string {
   const validExpression = /^[a-z0-9_]*$/i
   const fPartition = partition.trim()
   if (!validExpression.test(fPartition)) {
     throw new Error(
-      'partions may only contain alphanumeric and underscore characters'
+      'partitions may only contain alphanumeric and underscore characters'
     )
   }
-  return fPartition === '' ? fPartition : `/${fPartition}`
+  return fPartition
 }
 
 export function checkDatabaseName(databaseName: string): string {
-  if (typeof databaseName !== 'string' || databaseName === '') {
+  if (databaseName === '') {
     throw new Error('database name cannot be empty')
   }
   const validExpression = /^[a-z0-9_]*$/i
@@ -34,7 +80,7 @@ export function doesDatabaseExist(
 ): Promise<boolean> {
   return disklet
     .list('./')
-    .then(existingFiles => existingFiles[`${name}`] === 'folder')
+    .then(existingFiles => existingFiles[name] === 'folder')
 }
 
 export function isPositiveInteger(num: number): boolean {
