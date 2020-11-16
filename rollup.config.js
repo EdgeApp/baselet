@@ -1,6 +1,5 @@
 import babel from 'rollup-plugin-babel'
 import filesize from 'rollup-plugin-filesize'
-import flowEntry from 'rollup-plugin-flow-entry'
 import resolve from 'rollup-plugin-node-resolve'
 
 import packageJson from './package.json'
@@ -26,7 +25,6 @@ const babelOpts = {
   ]
 }
 const resolveOpts = { extensions }
-const flowOpts = { types: 'src/index.flow.js' }
 
 const external = [
   'fs',
@@ -45,18 +43,6 @@ export default [
       { file: packageJson.main, format: 'cjs', sourcemap: true },
       { file: packageJson.module, format: 'es', sourcemap: true }
     ],
-    plugins: [
-      resolve(resolveOpts),
-      babel(babelOpts),
-      flowEntry(flowOpts),
-      filesize()
-    ]
-  },
-  // Browser build:
-  {
-    external,
-    input: 'src/browser.ts',
-    output: [{ file: packageJson.browser, format: 'cjs', sourcemap: true }],
     plugins: [resolve(resolveOpts), babel(babelOpts), filesize()]
   }
 ]
