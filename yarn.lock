@@ -948,6 +948,7 @@
   resolved "https://registry.yarnpkg.com/@types/chai/-/chai-4.2.14.tgz#44d2dd0b5de6185089375d976b4ec5caf6861193"
   integrity sha512-G+ITQPXkwTrslfG5L/BksmbLUA0M1iybEsmCWPqzSxsRRhJZimBKJkoMi8fr/CPygPTj4zO5pJH7I2/cm9M7SQ==
 
+
 "@types/eslint-visitor-keys@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@types/eslint-visitor-keys/-/eslint-visitor-keys-1.0.0.tgz#1ee30d79544ca84d68d4b3cdb0af4f205663dd2d"
@@ -3804,11 +3805,6 @@ rollup-plugin-filesize@^9.0.0:
     gzip-size "^5.1.1"
     pacote "^11.1.10"
     terser "^4.8.0"
-
-rollup-plugin-flow-entry@^0.3.4:
-  version "0.3.4"
-  resolved "https://registry.yarnpkg.com/rollup-plugin-flow-entry/-/rollup-plugin-flow-entry-0.3.4.tgz#a7fcc334b7094889e60fa57224b0a1006882d15d"
-  integrity sha512-fYCgSB4y+gMJbJTpsIqR65mPhmLh6rH9CQx3lN9SQ6bQzyMXGuYu2GEIT/SeSOeZAgkAyyi8EnFykcaKH+sZtw==
 
 rollup-plugin-node-resolve@^5.2.0:
   version "5.2.0"
