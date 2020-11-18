@@ -39,7 +39,7 @@
   },
   "dependencies": {
     "disklet": "^0.4.5",
-    "memlet": "https://github.com/EdgeApp/memlet.git"
+    "memlet": "^0.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.9.6",
