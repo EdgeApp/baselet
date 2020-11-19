@@ -5,6 +5,7 @@ export {
   _getMemletState
 } from 'memlet'
 
+export { BaseType } from './types'
 export { openBase } from './common'
 export { createCountBase } from './CountBase'
 export { createHashBase } from './HashBase'
