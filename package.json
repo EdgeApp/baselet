@@ -21,7 +21,7 @@
   ],
   "main": "lib/baselet.cjs.js",
   "module": "lib/baselet.js",
-  "types": "lib/index.d.ts",
+  "types": "lib/src/index.d.ts",
   "scripts": {
     "fix": "npm run lint -- --fix",
     "lint": "eslint .",
