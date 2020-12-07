@@ -20,6 +20,7 @@ export interface RangeBase {
     rangeEnd?: number
   ): Promise<any[]>
   queryById(partition: string, range: number, id: string): Promise<any>
+  queryByCount(partition: string, count: number, offset: number): Promise<any[]>
   delete(partition: string, range: number, id: string): Promise<any>
   update(partition: string, oldRange: number, newData: any): Promise<unknown>
   min(partition: string): undefined | number
@@ -135,7 +136,7 @@ export function openRangeBase(
      * @param partition
      * @param max
      */
-    function findNewLimit(
+    function findLimit(
       partition: string,
       max: boolean
     ): Promise<number | undefined> {
@@ -198,7 +199,7 @@ export function openRangeBase(
           return fns.query(partition, range).then(items => {
             // If it was, find what the new min or max is supposed to be and save it in the config
             if (items.length === 0) {
-              return findNewLimit(partition, isMax).then(minOrMax => {
+              return findLimit(partition, isMax).then(minOrMax => {
                 if (isMin) {
                   partitionLimits.minRange = minOrMax
                 }
@@ -273,13 +274,60 @@ export function openRangeBase(
       )
     }
 
+    function queryByCount(
+      partition: string,
+      count: number,
+      offset: number
+    ): Promise<any[]> {
+      return fetchSortedBucketNumbers(partition).then(nums => {
+        const data: any[] = []
+        let offsetCount = 0
+        function fetchBucket(index: number): Promise<void> {
+          if (index === nums.length) return Promise.resolve()
+
+          return fetchBucketData(partition, nums[index]).then(bucketData => {
+            for (let i = bucketData.length - 1; i >= 0; i--) {
+              if (offsetCount >= offset) data.push(bucketData[i])
+              else offsetCount++
+              if (data.length === count) return
+            }
+
+            return fetchBucket(++index)
+          })
+        }
+
+        return fetchBucket(0).then(() => data)
+      })
+    }
+
+    function fetchSortedBucketNumbers(partition: string): Promise<string[]> {
+      const partitionPath = getPartitionPath(databaseName, partition)
+      return memlet.list(partitionPath).then(list => {
+        const numMap: { [bucketNumber: string]: true } = {}
+        for (const path in list) {
+          if (!Object.hasOwnProperty.call(list, path)) continue
+          if (list[path] === 'folder') continue
+          if (/config\.json$/.test(path)) continue
+
+          const chucks = path.split('/')
+          const bucketNumber = Number(chucks[chucks.length - 1].split('.')[0])
+          numMap[bucketNumber] = true
+        }
+
+        return Object.keys(numMap).sort((a, b) => (a < b ? 1 : -1))
+      })
+    }
+
     /**
      * Fetches the data from a bucket. If the bucket file does not exists, it returns an empty array.
      * @param partition
      * @param num Bucket number to fetch
      * @return Array of items from the bucket
      */
-    function fetchBucketData(partition: string, num: number): Promise<any[]> {
+    function fetchBucketData(
+      partition: string,
+      num: string | number
+    ): Promise<any[]> {
       const path = getBucketPath(databaseName, partition, num)
       return memlet.getJson(path).catch(() => [])
     }
@@ -446,6 +494,13 @@ export function openRangeBase(
       },
       queryById(partition: string, range: number, id: string): Promise<any> {
         return find(partition, range, id)
+      },
+      queryByCount(
+        partition: string,
+        count: number,
+        offset = 0
+      ): Promise<any[]> {
+        return queryByCount(partition, count, offset)
       },
       delete(partition: string, range: number, id: string): Promise<any> {
         return find(partition, range, id, true)
