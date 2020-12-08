@@ -280,18 +280,24 @@ export function openRangeBase(
       offset: number
     ): Promise<any[]> {
       return fetchSortedBucketNumbers(partition).then(nums => {
-        const data: any[] = []
-        let offsetCount = 0
+        let data: any[] = []
+        let offsetCount = offset
         function fetchBucket(index: number): Promise<void> {
-          if (index === nums.length) return Promise.resolve()
+          if (count === data.length || index === nums.length)
+            return Promise.resolve()
 
           return fetchBucketData(partition, nums[index]).then(bucketData => {
-            for (let i = bucketData.length - 1; i >= 0; i--) {
-              if (offsetCount >= offset) data.push(bucketData[i])
-              else offsetCount++
-              if (data.length === count) return
+            if (bucketData.length <= offsetCount) {
+              offsetCount -= bucketData.length
+              return fetchBucket(++index)
             }
 
+            const end = bucketData.length - offsetCount
+            const startIndex = end + data.length - count
+            const start = startIndex > 0 ? startIndex : 0
+            data = [...data, ...bucketData.slice(start, end).reverse()]
+
+            offsetCount = 0
             return fetchBucket(++index)
           })
         }
