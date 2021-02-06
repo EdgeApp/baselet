@@ -64,7 +64,8 @@ describe('RangeBase baselet', function () {
       rangeKey,
       idKey,
       idPrefixLength,
-      limits: {}
+      limits: {},
+      sizes: {}
     }
     rangebaseDb = await createRangeBase(
       disklet,
@@ -98,6 +99,7 @@ describe('RangeBase baselet', function () {
       (item: RangeBaseData) => item[idKey] === testData1[idKey]
     )
     expect(storedData).eql(testData1)
+    expect(rangebaseDb.size(partitionName)).equal(7)
   })
   it('duplicate data', async function () {
     let error
@@ -142,6 +144,7 @@ describe('RangeBase baselet', function () {
       dataToDelete[idKey]
     )
     expect(queriedData).equal(undefined)
+    expect(rangebaseDb.size(partitionName)).equal(6)
   })
   it('move data', async function () {
     const moveToRange = 123456789

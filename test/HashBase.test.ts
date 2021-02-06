@@ -3,8 +3,8 @@ import { makeMemoryDisklet } from 'disklet'
 import { describe, it } from 'mocha'
 
 import { createHashBase, HashBase } from '../src/HashBase'
-import { BaseType } from '../src/types'
 import { getBucketPath, getConfig } from '../src/helpers'
+import { BaseType } from '../src/types'
 
 describe('HashBase baselet', function () {
   const disklet = makeMemoryDisklet()
