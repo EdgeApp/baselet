@@ -25,6 +25,7 @@ export interface RangeBase {
   update(partition: string, oldRange: number, newData: any): Promise<unknown>
   min(partition: string): undefined | number
   max(partition: string): undefined | number
+  size(partition: string): number
 }
 
 export interface RangeBaseData {
@@ -37,6 +38,7 @@ interface RangeBaseConfig extends BaseletConfig {
   idKey: string
   idPrefixLength: number
   limits: PartitionLimits
+  sizes: { [partition: string]: number }
 }
 
 interface PartitionLimits {
@@ -414,6 +416,11 @@ export function openRangeBase(
                 }
               )
               .then(() => updateMinMax(partition, data, false))
+              .then(() => {
+                const size = configData.sizes[partition] ?? 0
+                configData.sizes[partition] = size + 1
+                return setConfig(disklet, databaseName, configData)
+              })
           }
         )
       },
@@ -509,7 +516,11 @@ export function openRangeBase(
         return queryByCount(partition, count, offset)
       },
       delete(partition: string, range: number, id: string): Promise<any> {
-        return find(partition, range, id, true)
+        return find(partition, range, id, true).then(data => {
+          const size = configData.sizes[partition] ?? 0
+          configData.sizes[partition] = size - 1
+          return setConfig(disklet, databaseName, configData).then(() => data)
+        })
       },
       update(
         partition: string,
@@ -531,6 +542,9 @@ export function openRangeBase(
       },
       max(partition: string): undefined | number {
         return configData.limits[partition]?.maxRange
+      },
+      size(partition: string): number {
+        return configData.sizes[partition]
       }
     }
 
@@ -561,7 +575,8 @@ export function createRangeBase(
       rangeKey,
       idKey,
       idPrefixLength,
-      limits: {}
+      limits: {},
+      sizes: {}
     }
     return setConfig(disklet, databaseName, configData).then(() =>
       openRangeBase(disklet, databaseName)
