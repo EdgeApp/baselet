@@ -26,6 +26,7 @@ export interface RangeBase {
   min(partition: string): undefined | number
   max(partition: string): undefined | number
   size(partition: string): number
+  dumpData(partition: string): Promise<any>
 }
 
 export interface RangeBaseData {
@@ -545,6 +546,10 @@ export function openRangeBase(
       },
       size(partition: string): number {
         return configData.sizes[partition]
+      },
+      dumpData(partition: string): Promise<any> {
+        const min = fns.min(partition) ?? 0
+        return fns.query(partition, min, fns.max(partition))
       }
     }
 

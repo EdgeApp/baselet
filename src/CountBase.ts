@@ -29,6 +29,7 @@ export interface CountBase {
     rangeEnd?: number
   ): Promise<any[]>
   length(partition: string): number
+  dumpData(partition: string): Promise<any>
 }
 
 export function openCountBase(
@@ -42,7 +43,7 @@ export function openCountBase(
       throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
     }
 
-    return {
+    const fns = {
       insert(partition: string, index: number, data: any): Promise<unknown> {
         const formattedPartition = checkAndFormatPartition(partition)
         let metadataChanged = false
@@ -128,8 +129,13 @@ export function openCountBase(
         const formattedPartition = checkAndFormatPartition(partition)
         const partitionMetadata = configData.partitions[formattedPartition]
         return partitionMetadata?.length ?? 0
+      },
+      dumpData(partition: string): Promise<any> {
+        return fns.query(partition, 0, fns.length(partition) - 1)
       }
     }
+
+    return fns
   })
 }
 

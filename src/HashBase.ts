@@ -1,11 +1,13 @@
-import { Disklet } from 'disklet'
+import { Disklet, navigateDisklet } from 'disklet'
 
 import {
   checkDatabaseName,
   doesDatabaseExist,
   getBucketPath,
   getConfig,
+  getConfigPath,
   getOrMakeMemlet,
+  getPartitionPath,
   isPositiveInteger,
   setConfig
 } from './helpers'
@@ -15,6 +17,7 @@ export interface HashBase {
   insert(partition: string, hash: string, data: any): Promise<unknown>
   query(partition: string, hashes: string[]): Promise<any[]>
   delete(partition: string, hashes: string[]): Promise<any[]>
+  dumpData(partition: string): Promise<any>
 }
 
 interface HashBaseConfig extends BaseletConfig {
@@ -132,6 +135,37 @@ export function openHashBase(
       },
       delete(partition: string, hashes: string[]): Promise<any[]> {
         return find(partition, hashes, true)
+      },
+      dumpData(partition: string): Promise<any> {
+        const dump = (d: Disklet, data: any = {}): Promise<any> => {
+          return d.list().then(listing => {
+            return Promise.all(
+              Object.keys(listing).map(path => {
+                if (getConfigPath(databaseName).includes(path)) {
+                  return
+                }
+
+                const type = listing[path]
+                if (type === 'folder') {
+                  return dump(navigateDisklet(d, path), data[path]).then(
+                    folderData => {
+                      data[path] = folderData
+                    }
+                  )
+                }
+                if (type === 'file') {
+                  return d.getText(path).then(fileData => {
+                    data = { ...data, ...JSON.parse(fileData) }
+                  })
+                }
+              })
+            ).then(() => data)
+          })
+        }
+
+        return dump(
+          navigateDisklet(disklet, getPartitionPath(databaseName, partition))
+        )
       }
     }
 
