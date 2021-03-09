@@ -70,4 +70,8 @@ describe('HashBase baselet', function () {
     ])
     expect(queriedData2).eql(undefined)
   })
+  it('dumpData', async () => {
+    const data = await hashbaseDb.dumpData('')
+    expect(data).keys(['config', 'data'])
+  })
 })

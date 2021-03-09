@@ -131,7 +131,12 @@ export function openCountBase(
         return partitionMetadata?.length ?? 0
       },
       dumpData(partition: string): Promise<any> {
-        return fns.query(partition, 0, fns.length(partition) - 1)
+        return fns.query(partition, 0, fns.length(partition) - 1).then(data => {
+          return {
+            config: configData,
+            data
+          }
+        })
       }
     }
 

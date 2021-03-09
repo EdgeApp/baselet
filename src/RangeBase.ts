@@ -549,7 +549,12 @@ export function openRangeBase(
       },
       dumpData(partition: string): Promise<any> {
         const min = fns.min(partition) ?? 0
-        return fns.query(partition, min, fns.max(partition))
+        return fns.query(partition, min, fns.max(partition)).then(data => {
+          return {
+            config: configData,
+            data
+          }
+        })
       }
     }
 

@@ -163,9 +163,16 @@ export function openHashBase(
           })
         }
 
-        return dump(
-          navigateDisklet(disklet, getPartitionPath(databaseName, partition))
+        const partitionDisklet = navigateDisklet(
+          disklet,
+          getPartitionPath(databaseName, partition)
         )
+        return dump(partitionDisklet).then(data => {
+          return {
+            config: configData,
+            data
+          }
+        })
       }
     }
 
