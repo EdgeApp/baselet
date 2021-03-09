@@ -22,6 +22,7 @@ interface CountBaseConfig extends BaseletConfig {
 }
 
 export interface CountBase {
+  databaseName: string
   insert(partition: string, index: number, data: any): Promise<unknown>
   query(
     partition: string,
@@ -43,7 +44,8 @@ export function openCountBase(
       throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
     }
 
-    const fns = {
+    const fns: CountBase = {
+      databaseName,
       insert(partition: string, index: number, data: any): Promise<unknown> {
         const formattedPartition = checkAndFormatPartition(partition)
         let metadataChanged = false

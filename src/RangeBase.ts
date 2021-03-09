@@ -13,6 +13,7 @@ import {
 import { BaseletConfig, BaseType } from './types'
 
 export interface RangeBase {
+  databaseName: string
   insert(partition: string, data: any): Promise<unknown>
   query(
     partition: string,
@@ -361,6 +362,7 @@ export function openRangeBase(
     }
 
     const fns: RangeBase = {
+      databaseName,
       insert(partition: string, data: any): Promise<unknown> {
         const { bucketSize, rangeKey, idKey } = configData
         if (

@@ -14,6 +14,7 @@ import {
 import { BaseletConfig, BaseType } from './types'
 
 export interface HashBase {
+  databaseName: string
   insert(partition: string, hash: string, data: any): Promise<unknown>
   query(partition: string, hashes: string[]): Promise<any[]>
   delete(partition: string, hashes: string[]): Promise<any[]>
@@ -112,6 +113,7 @@ export function openHashBase(
     }
 
     const fns: HashBase = {
+      databaseName,
       insert(partition: string, hash: string, data: any): Promise<unknown> {
         const { prefixSize } = configData
         if (hash.length < prefixSize) {
