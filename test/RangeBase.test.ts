@@ -173,6 +173,10 @@ describe('RangeBase baselet', function () {
     )
     expect(newDataFromQuery).eql(newData)
   })
+  it('dumpData', async () => {
+    const data = await rangebaseDb.dumpData('')
+    expect(data).keys(['config', 'data'])
+  })
 })
 
 describe('RangeBase min/max limits', function () {
