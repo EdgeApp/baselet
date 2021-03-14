@@ -541,13 +541,13 @@ export function openRangeBase(
           })
       },
       min(partition: string): undefined | number {
-        return configData.limits[partition]?.minRange
+        return configData.limits[partition]?.minRange ?? 0
       },
       max(partition: string): undefined | number {
-        return configData.limits[partition]?.maxRange
+        return configData.limits[partition]?.maxRange ?? 0
       },
       size(partition: string): number {
-        return configData.sizes[partition]
+        return configData.sizes[partition] ?? 0
       },
       dumpData(partition: string): Promise<any> {
         const min = fns.min(partition) ?? 0
