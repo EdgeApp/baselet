@@ -229,8 +229,8 @@ describe('RangeBase min/max limits', function () {
     expect(rangebaseDb.max(partitionName)).equal(max)
   }
 
-  it('should have undefined min and max values', function () {
-    testMinMax(undefined, undefined)
+  it('should have 0 min and max values', function () {
+    testMinMax(0, 0)
   })
 
   describe('inserting data', function () {
@@ -277,7 +277,7 @@ describe('RangeBase min/max limits', function () {
         testData2[rangeKey],
         testData2[idKey]
       )
-      testMinMax(undefined, undefined)
+      testMinMax(0, 0)
     })
   })
 })

@@ -24,8 +24,8 @@ export interface RangeBase {
   queryByCount(partition: string, count: number, offset: number): Promise<any[]>
   delete(partition: string, range: number, id: string): Promise<any>
   update(partition: string, oldRange: number, newData: any): Promise<unknown>
-  min(partition: string): undefined | number
-  max(partition: string): undefined | number
+  min(partition: string): number
+  max(partition: string): number
   size(partition: string): number
   dumpData(partition: string): Promise<any>
 }
@@ -540,14 +540,14 @@ export function openRangeBase(
             return fns.insert(partition, newData)
           })
       },
-      min(partition: string): undefined | number {
-        return configData.limits[partition]?.minRange
+      min(partition: string): number {
+        return configData.limits[partition]?.minRange ?? 0
       },
-      max(partition: string): undefined | number {
-        return configData.limits[partition]?.maxRange
+      max(partition: string): number {
+        return configData.limits[partition]?.maxRange ?? 0
       },
       size(partition: string): number {
-        return configData.sizes[partition]
+        return configData.sizes[partition] ?? 0
       },
       dumpData(partition: string): Promise<any> {
         const min = fns.min(partition) ?? 0
