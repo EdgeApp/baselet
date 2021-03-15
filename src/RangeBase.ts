@@ -24,8 +24,8 @@ export interface RangeBase {
   queryByCount(partition: string, count: number, offset: number): Promise<any[]>
   delete(partition: string, range: number, id: string): Promise<any>
   update(partition: string, oldRange: number, newData: any): Promise<unknown>
-  min(partition: string): undefined | number
-  max(partition: string): undefined | number
+  min(partition: string): number
+  max(partition: string): number
   size(partition: string): number
   dumpData(partition: string): Promise<any>
 }
