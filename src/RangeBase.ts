@@ -540,10 +540,10 @@ export function openRangeBase(
             return fns.insert(partition, newData)
           })
       },
-      min(partition: string): undefined | number {
+      min(partition: string): number {
         return configData.limits[partition]?.minRange ?? 0
       },
-      max(partition: string): undefined | number {
+      max(partition: string): number {
         return configData.limits[partition]?.maxRange ?? 0
       },
       size(partition: string): number {
