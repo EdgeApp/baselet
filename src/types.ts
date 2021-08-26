@@ -7,3 +7,8 @@ export enum BaseType {
 export interface BaseletConfig {
   type: BaseType
 }
+
+export interface DataDump<C extends BaseletConfig, D> {
+  config: C
+  data: D
+}

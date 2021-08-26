@@ -6,13 +6,19 @@ import { createHashBase, HashBase } from '../src/HashBase'
 import { getBucketPath, getConfig } from '../src/helpers'
 import { BaseType } from '../src/types'
 
+interface TestData {
+  hash: string
+  input: string
+  output: string
+}
+
 describe('HashBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let hashbaseDb: HashBase
+  let hashbaseDb: HashBase<TestData>
   const dbName = 'testHashdb'
   const prefixSize = 2
   const partitionName = 'students'
-  const dataSet = [
+  const dataSet: TestData[] = [
     { hash: 'abcd-efgh-ijkl-mnop', input: 'btc', output: 'eth' },
     { hash: 'bytc-efgh-ijkl-mnop', input: 'ltc', output: 'eth' },
     { hash: 'abcd-hitk-ijkl-mnop', input: 'eth', output: 'bat' },
