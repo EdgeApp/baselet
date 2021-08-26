@@ -1,6 +1,8 @@
 import { Disklet } from 'disklet'
 import { makeMemlet, Memlet } from 'memlet'
 
+import { AnyBaseletConfig } from './types'
+
 export function isMemlet(object: Disklet | Memlet): object is Memlet {
   return (
     Object.prototype.hasOwnProperty.call(object, 'getJson') ||
@@ -31,22 +33,19 @@ export function getConfigPath(databaseName: string): string {
   return `${databaseName}/config.json`
 }
 
-export function getConfig<T = any>(
+export function getConfig<T = unknown>(
   disklet: Disklet,
   databaseName: string
 ): Promise<T> {
   return disklet.getText(getConfigPath(databaseName)).then(JSON.parse)
 }
 
-export function setConfig(
+export async function setConfig(
   disklet: Disklet,
   databaseName: string,
-  configData: any
-): Promise<unknown> {
-  return disklet.setText(
-    getConfigPath(databaseName),
-    JSON.stringify(configData)
-  )
+  config: AnyBaseletConfig
+): Promise<void> {
+  await disklet.setText(getConfigPath(databaseName), JSON.stringify(config))
 }
 
 export function checkAndFormatPartition(partition: string = ''): string {

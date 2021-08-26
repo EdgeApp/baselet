@@ -10,168 +10,157 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType } from './types'
+import { BaseType, CountBaseConfig, CountBaseOptions, DataDump } from './types'
 
-interface CountBaseConfig extends BaseletConfig {
-  bucketSize: number
-  partitions: {
-    [partitionName: string]: {
-      length: number
-    }
-  }
-}
-
-export interface CountBase {
+export interface CountBase<K> {
   databaseName: string
-  insert(partition: string, index: number, data: any): Promise<unknown>
-  query(
-    partition: string,
-    rangeStart: number,
-    rangeEnd?: number
-  ): Promise<any[]>
+  insert(partition: string, index: number, data: K): Promise<void>
+  query(partition: string, rangeStart: number, rangeEnd?: number): Promise<K[]>
   length(partition: string): number
-  dumpData(partition: string): Promise<any>
+  dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>>
 }
 
-export function openCountBase(
+export async function openCountBase<K>(
   disklet: Disklet,
   databaseName: string
-): Promise<CountBase> {
+): Promise<CountBase<K>> {
   const memlet = getOrMakeMemlet(disklet)
 
-  return getConfig<CountBaseConfig>(disklet, databaseName).then(configData => {
-    if (configData.type !== BaseType.CountBase) {
-      throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
-    }
+  const configData = await getConfig<CountBaseConfig>(disklet, databaseName)
+  if (configData.type !== BaseType.CountBase) {
+    throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
+  }
 
-    const fns: CountBase = {
-      databaseName,
-      insert(partition: string, index: number, data: any): Promise<unknown> {
-        const formattedPartition = checkAndFormatPartition(partition)
-        let metadataChanged = false
-        let partitionMetadata = configData.partitions[formattedPartition]
-        if (partitionMetadata === undefined) {
-          partitionMetadata = { length: 0 }
-          metadataChanged = true
-        }
-        const nextIndex = partitionMetadata.length
+  const out: CountBase<K> = {
+    databaseName,
 
-        if (Number.isNaN(index) || index < 0) {
-          return Promise.reject(
-            new Error('index must be a Number greater than 0')
-          )
-        }
-        if (index > nextIndex) {
-          return Promise.reject(
-            new Error('index is larger than next index in partition')
-          )
-        }
+    async insert(partition: string, index: number, data: K): Promise<void> {
+      const formattedPartition = checkAndFormatPartition(partition)
+      let metadataChanged = false
+      let partitionMetadata = configData.partitions[formattedPartition]
+      if (partitionMetadata === undefined) {
+        partitionMetadata = { length: 0 }
+        metadataChanged = true
+      }
+      const nextIndex = partitionMetadata.length
 
-        if (index === nextIndex) {
-          ++partitionMetadata.length
-          metadataChanged = true
-        }
+      if (Number.isNaN(index) || index < 0) {
+        return Promise.reject(
+          new Error('index must be a Number greater than 0')
+        )
+      }
+      if (index > nextIndex) {
+        return Promise.reject(
+          new Error('index is larger than next index in partition')
+        )
+      }
 
-        const bucketNumber = Math.floor(index / configData.bucketSize)
+      if (index === nextIndex) {
+        ++partitionMetadata.length
+        metadataChanged = true
+      }
+
+      const bucketNumber = Math.floor(index / configData.bucketSize)
+      const bucketPath = getBucketPath(databaseName, partition, bucketNumber)
+      const existingData = await memlet.getJson(bucketPath).catch(() => [])
+      const bucketIndex = index % configData.bucketSize
+
+      // Update bucket data
+      existingData[bucketIndex] = data
+      await memlet.setJson(bucketPath, existingData)
+
+      // Update partition metadata
+      if (metadataChanged) {
+        configData.partitions[formattedPartition] = partitionMetadata
+      }
+      await setConfig(disklet, databaseName, configData)
+    },
+
+    async query(
+      partition: string,
+      rangeStart: number = 0,
+      rangeEnd: number = rangeStart
+    ): Promise<K[]> {
+      // sanity check the range
+      const bucketFetchers = []
+      for (
+        let bucketNumber = Math.floor(rangeStart / configData.bucketSize);
+        bucketNumber <= Math.floor(rangeEnd / configData.bucketSize);
+        bucketNumber++
+      ) {
         const bucketPath = getBucketPath(databaseName, partition, bucketNumber)
-        return memlet
-          .getJson(bucketPath)
-          .then(
-            currentBucketData => currentBucketData,
-            // Assume no bucket exists
-            () => []
-          )
-          .then(existingData => {
-            const bucketIndex = index % configData.bucketSize
-            existingData[bucketIndex] = data
-            return memlet.setJson(bucketPath, existingData)
-          })
-          .then(() => {
-            if (metadataChanged) {
-              configData.partitions[formattedPartition] = partitionMetadata
-            }
-            return setConfig(disklet, databaseName, configData)
-          })
-          .catch(error => {
-            throw new Error(`Could not insert data. ${error}`)
-          })
-      },
-      query(
-        partition: string,
-        rangeStart: number = 0,
-        rangeEnd: number = rangeStart
-      ): Promise<any[]> {
-        // sanity check the range
-        const bucketFetchers = []
-        for (
-          let bucketNumber = Math.floor(rangeStart / configData.bucketSize);
-          bucketNumber <= Math.floor(rangeEnd / configData.bucketSize);
-          bucketNumber++
-        ) {
-          const bucketPath = getBucketPath(
-            databaseName,
-            partition,
-            bucketNumber
-          )
-          bucketFetchers.push(memlet.getJson(bucketPath).catch(() => []))
-        }
-        return Promise.all(bucketFetchers).then(bucketList => {
-          const queryResults: any[] = []
-          for (let i = rangeStart; i <= rangeEnd; i++) {
-            const bucketNumber = Math.floor(i / configData.bucketSize)
-            const dataIndex = i % configData.bucketSize
-            const fetchedBucketNumber =
-              bucketNumber - Math.floor(rangeStart / configData.bucketSize)
-            queryResults.push(bucketList[fetchedBucketNumber][dataIndex])
-          }
-          return queryResults
-        })
-      },
-      length(partition: string): number {
-        const formattedPartition = checkAndFormatPartition(partition)
-        const partitionMetadata = configData.partitions[formattedPartition]
-        return partitionMetadata?.length ?? 0
-      },
-      dumpData(partition: string): Promise<any> {
-        return fns.query(partition, 0, fns.length(partition) - 1).then(data => {
-          return {
-            config: configData,
-            data
-          }
-        })
+        bucketFetchers.push(memlet.getJson(bucketPath).catch(() => []))
+      }
+      const bucketList = await Promise.all(bucketFetchers)
+      const queryResults: K[] = []
+      for (let i = rangeStart; i <= rangeEnd; i++) {
+        const bucketNumber = Math.floor(i / configData.bucketSize)
+        const dataIndex = i % configData.bucketSize
+        const fetchedBucketNumber =
+          bucketNumber - Math.floor(rangeStart / configData.bucketSize)
+        queryResults.push(bucketList[fetchedBucketNumber][dataIndex])
+      }
+      return queryResults
+    },
+
+    length(partition: string): number {
+      const formattedPartition = checkAndFormatPartition(partition)
+      const partitionMetadata = configData.partitions[formattedPartition]
+      return partitionMetadata?.length ?? 0
+    },
+
+    async dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>> {
+      const data = await out.query(partition, 0, out.length(partition) - 1)
+      return {
+        config: configData,
+        data
       }
     }
+  }
 
-    return fns
-  })
+  return out
 }
 
-export function createCountBase(
+export async function createCountBase<K>(
   disklet: Disklet,
-  databaseName: string,
-  bucketSize: number
-): Promise<CountBase> {
+  options: CountBaseOptions
+): Promise<CountBase<K>> {
+  const { name: databaseName, bucketSize } = options
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
 
-  databaseName = checkDatabaseName(databaseName)
-  return doesDatabaseExist(disklet, databaseName).then(databaseExists => {
-    if (databaseExists) {
-      throw new Error(`database ${databaseName} already exists`)
-    }
+  const dbName = checkDatabaseName(databaseName)
+  const databaseExists = await doesDatabaseExist(disklet, dbName)
+  if (databaseExists) {
+    throw new Error(`database ${dbName} already exists`)
+  }
 
-    const configData: CountBaseConfig = {
-      type: BaseType.CountBase,
-      bucketSize: Math.floor(bucketSize),
-      partitions: {
-        '': {
-          length: 0
-        }
+  const configData: CountBaseConfig = {
+    type: BaseType.CountBase,
+    name: dbName,
+    bucketSize: Math.floor(bucketSize),
+    partitions: {
+      '': {
+        length: 0
       }
     }
-    return setConfig(disklet, databaseName, configData).then(() =>
-      openCountBase(disklet, databaseName)
-    )
-  })
+  }
+  await setConfig(disklet, dbName, configData)
+
+  return openCountBase(disklet, dbName)
+}
+
+export async function createOrOpenCountBase<K>(
+  disklet: Disklet,
+  options: CountBaseOptions
+): Promise<CountBase<K>> {
+  try {
+    return await createCountBase(disklet, options)
+  } catch (err) {
+    if (err instanceof Error && !err.message.includes('already exists')) {
+      throw err
+    }
+    return openCountBase(disklet, options.name)
+  }
 }
