@@ -44,7 +44,7 @@ describe('CountBase baselet', function () {
     }
 
     console.log()
-    const storedConfig = await getConfig(disklet, dbName)
+    const storedConfig = await getConfig<any>(disklet, dbName)
     const bucketNumber = Math.floor(dataSet[0].index / dbBucketSize)
     const buckePath = getBucketPath(dbName, partitionName, bucketNumber)
     const storedData = JSON.parse(await disklet.getText(buckePath))
