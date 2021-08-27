@@ -31,7 +31,7 @@ export function getConfigPath(databaseName: string): string {
   return `${databaseName}/config.json`
 }
 
-export function getConfig<T = any>(
+export function getConfig<T = unknown>(
   disklet: Disklet,
   databaseName: string
 ): Promise<T> {
