@@ -25,48 +25,50 @@ describe('RangeBase baselet', function () {
   const bucketSize = 2000000
   const idPrefixLength = 4
   const partitionName = 'transactions'
-  const testData1: TestData = {
-    [rangeKey]: 1594734520,
-    [idKey]: 'abcd-efgh-ijkl-mnop',
-    input: 'btc',
-    output: 'eth'
-  }
-  const testData2: TestData = {
-    [rangeKey]: 1594734520,
-    [idKey]: 'bytc-efgh-ijkl-mnop',
-    input: 'ltc',
-    output: 'eth'
-  }
-  const testData3: TestData = {
-    [rangeKey]: 1594484520,
-    [idKey]: 'abcd-hitk-ijkl-mnop',
-    input: 'eth',
-    output: 'bat'
-  }
-  const testData4: TestData = {
-    [rangeKey]: 1579073917,
-    [idKey]: 'zbcd-efgh-ijkl-dfop',
-    input: 'bat',
-    output: 'btc'
-  }
-  const testData5: TestData = {
-    [rangeKey]: 1594734520,
-    [idKey]: 'zbcd-abcd-ijkl-ddop',
-    input: 'bat',
-    output: 'ltc'
-  }
-  const testData6: TestData = {
-    [rangeKey]: 1594736520,
-    [idKey]: 'xyxy-abcd-ijkl-ddop',
-    input: 'bat',
-    output: 'nexo'
-  }
-  const testData7: TestData = {
-    [rangeKey]: 1234,
-    [idKey]: 'zzzz-abcd-ijkl-ddop',
-    input: 'bat',
-    output: 'nexo'
-  }
+  const testData: TestData[] = [
+    {
+      [rangeKey]: 1594734520,
+      [idKey]: 'abcd-efgh-ijkl-mnop',
+      input: 'btc',
+      output: 'eth'
+    },
+    {
+      [rangeKey]: 1594734520,
+      [idKey]: 'bytc-efgh-ijkl-mnop',
+      input: 'ltc',
+      output: 'eth'
+    },
+    {
+      [rangeKey]: 1594484520,
+      [idKey]: 'abcd-hitk-ijkl-mnop',
+      input: 'eth',
+      output: 'bat'
+    },
+    {
+      [rangeKey]: 1579073917,
+      [idKey]: 'zbcd-efgh-ijkl-dfop',
+      input: 'bat',
+      output: 'btc'
+    },
+    {
+      [rangeKey]: 1594734520,
+      [idKey]: 'zbcd-abcd-ijkl-ddop',
+      input: 'bat',
+      output: 'ltc'
+    },
+    {
+      [rangeKey]: 1594736520,
+      [idKey]: 'xyxy-abcd-ijkl-ddop',
+      input: 'bat',
+      output: 'nexo'
+    },
+    {
+      [rangeKey]: 1234,
+      [idKey]: 'zzzz-abcd-ijkl-ddop',
+      input: 'bat',
+      output: 'nexo'
+    }
+  ]
   it('create rangebase', async function () {
     const expectedTest = {
       type: BaseType.RangeBase,
@@ -93,28 +95,28 @@ describe('RangeBase baselet', function () {
     expect(data.length).to.eq(0)
   })
   it('insert data', async function () {
-    await rangebaseDb.insert(partitionName, testData1)
-    await rangebaseDb.insert(partitionName, testData2)
-    await rangebaseDb.insert(partitionName, testData3)
-    await rangebaseDb.insert(partitionName, testData4)
-    await rangebaseDb.insert(partitionName, testData5)
-    await rangebaseDb.insert(partitionName, testData6)
-    await rangebaseDb.insert(partitionName, testData7)
+    await rangebaseDb.insert(partitionName, testData[0])
+    await rangebaseDb.insert(partitionName, testData[1])
+    await rangebaseDb.insert(partitionName, testData[2])
+    await rangebaseDb.insert(partitionName, testData[3])
+    await rangebaseDb.insert(partitionName, testData[4])
+    await rangebaseDb.insert(partitionName, testData[5])
+    await rangebaseDb.insert(partitionName, testData[6])
 
-    const bucket = Math.floor(testData1[rangeKey] / bucketSize)
+    const bucket = Math.floor(testData[0][rangeKey] / bucketSize)
     const storedBucket = await disklet.getText(
       getBucketPath(dbName, partitionName, bucket)
     )
     const storedData = JSON.parse(storedBucket).find(
-      (item: TestData) => item[idKey] === testData1[idKey]
+      (item: TestData) => item[idKey] === testData[0][idKey]
     )
-    expect(storedData).eql(testData1)
+    expect(storedData).eql(testData[0])
     expect(rangebaseDb.size(partitionName)).equal(7)
   })
   it('duplicate data', async function () {
     let error
     try {
-      await rangebaseDb.insert(partitionName, testData1)
+      await rangebaseDb.insert(partitionName, testData[0])
     } catch (err) {
       error = err
     }
@@ -122,27 +124,27 @@ describe('RangeBase baselet', function () {
     expect(error.message).eql('Cannot insert data because id already exists')
   })
   it('query data', async function () {
-    const data1 = await rangebaseDb.query(partitionName, testData4[rangeKey])
+    const data1 = await rangebaseDb.query(partitionName, testData[3][rangeKey])
     expect(data1.length).eql(1)
-    expect(data1[0]).eql(testData4)
+    expect(data1[0]).eql(testData[3])
     const data2 = await rangebaseDb.query(
       partitionName,
-      testData3[rangeKey],
-      testData6[rangeKey]
+      testData[2][rangeKey],
+      testData[5][rangeKey]
     )
     expect(data2.length).eql(5)
-    expect(data2[0]).eql(testData3)
+    expect(data2[0]).eql(testData[2])
   })
   it('query data by id', async function () {
     const data5 = await rangebaseDb.queryById(
       partitionName,
-      testData5[rangeKey],
-      testData5[idKey]
+      testData[4][rangeKey],
+      testData[4][idKey]
     )
-    expect(data5).to.eql(testData5)
+    expect(data5).to.eql(testData[4])
   })
   it('delete data', async function () {
-    const dataToDelete = testData4
+    const dataToDelete = testData[3]
     await rangebaseDb.delete(
       partitionName,
       dataToDelete[rangeKey],
@@ -158,7 +160,7 @@ describe('RangeBase baselet', function () {
   })
   it('move data', async function () {
     const moveToRange = 123456789
-    const dataToMove = testData7
+    const dataToMove = testData[6]
     const newData = {
       ...dataToMove,
       [rangeKey]: moveToRange
@@ -198,30 +200,32 @@ describe('RangeBase min/max limits', function () {
   const idKey = 'id'
   const idPrefixLength = 4
   const partitionName = 'transactions'
-  const testData1: TestData = {
-    [rangeKey]: 0,
-    [idKey]: 'abcd-efgh-ijkl-mnop',
-    input: 'btc',
-    output: 'eth'
-  }
-  const testData2: TestData = {
-    [rangeKey]: 2,
-    [idKey]: 'bytc-efgh-ijkl-mnop',
-    input: 'ltc',
-    output: 'eth'
-  }
-  const testData3: TestData = {
-    [rangeKey]: 4,
-    [idKey]: 'abcd-hitk-ijkl-mnop',
-    input: 'eth',
-    output: 'bat'
-  }
-  const testData4: TestData = {
-    [rangeKey]: 5,
-    [idKey]: 'zbcd-efgh-ijkl-dfop',
-    input: 'bat',
-    output: 'btc'
-  }
+  const testData: TestData[] = [
+    {
+      [rangeKey]: 0,
+      [idKey]: 'abcd-efgh-ijkl-mnop',
+      input: 'btc',
+      output: 'eth'
+    },
+    {
+      [rangeKey]: 2,
+      [idKey]: 'bytc-efgh-ijkl-mnop',
+      input: 'ltc',
+      output: 'eth'
+    },
+    {
+      [rangeKey]: 4,
+      [idKey]: 'abcd-hitk-ijkl-mnop',
+      input: 'eth',
+      output: 'bat'
+    },
+    {
+      [rangeKey]: 5,
+      [idKey]: 'zbcd-efgh-ijkl-dfop',
+      input: 'bat',
+      output: 'btc'
+    }
+  ]
 
   before('setup', async function () {
     rangebaseDb = await createRangeBase(
@@ -245,17 +249,17 @@ describe('RangeBase min/max limits', function () {
 
   describe('inserting data', function () {
     it('should be able to calculate the max range value', async function () {
-      await rangebaseDb.insert(partitionName, testData2)
-      testMinMax(testData2[rangeKey], testData2[rangeKey])
+      await rangebaseDb.insert(partitionName, testData[1])
+      testMinMax(testData[1][rangeKey], testData[1][rangeKey])
 
-      await rangebaseDb.insert(partitionName, testData1)
-      testMinMax(testData1[rangeKey], testData2[rangeKey])
+      await rangebaseDb.insert(partitionName, testData[0])
+      testMinMax(testData[0][rangeKey], testData[1][rangeKey])
 
-      await rangebaseDb.insert(partitionName, testData4)
-      testMinMax(testData1[rangeKey], testData4[rangeKey])
+      await rangebaseDb.insert(partitionName, testData[3])
+      testMinMax(testData[0][rangeKey], testData[3][rangeKey])
 
-      await rangebaseDb.insert(partitionName, testData3)
-      testMinMax(testData1[rangeKey], testData4[rangeKey])
+      await rangebaseDb.insert(partitionName, testData[2])
+      testMinMax(testData[0][rangeKey], testData[3][rangeKey])
     })
   })
 
@@ -263,29 +267,29 @@ describe('RangeBase min/max limits', function () {
     it('should be able to calculate the max range value', async function () {
       await rangebaseDb.delete(
         partitionName,
-        testData1[rangeKey],
-        testData1[idKey]
+        testData[0][rangeKey],
+        testData[0][idKey]
       )
-      testMinMax(testData2[rangeKey], testData4[rangeKey])
+      testMinMax(testData[1][rangeKey], testData[3][rangeKey])
 
       await rangebaseDb.delete(
         partitionName,
-        testData4[rangeKey],
-        testData4[idKey]
+        testData[3][rangeKey],
+        testData[3][idKey]
       )
-      testMinMax(testData2[rangeKey], testData3[rangeKey])
+      testMinMax(testData[1][rangeKey], testData[2][rangeKey])
 
       await rangebaseDb.delete(
         partitionName,
-        testData3[rangeKey],
-        testData3[idKey]
+        testData[2][rangeKey],
+        testData[2][idKey]
       )
-      testMinMax(testData2[rangeKey], testData2[rangeKey])
+      testMinMax(testData[1][rangeKey], testData[1][rangeKey])
 
       await rangebaseDb.delete(
         partitionName,
-        testData2[rangeKey],
-        testData2[idKey]
+        testData[1][rangeKey],
+        testData[1][idKey]
       )
       testMinMax(0, 0)
     })
@@ -302,26 +306,28 @@ describe('RangeBase baselet findById', function () {
   const idPrefixLength = 4
   const partitionName = 'transactions'
 
-  const testData1: TestData = {
-    [rangeKey]: 1111111111111,
-    [idKey]: '111'
-  }
-  const testData2: TestData = {
-    [rangeKey]: 1111111111111,
-    [idKey]: '222'
-  }
-  const testData3: TestData = {
-    [rangeKey]: 1111111111111,
-    [idKey]: '333'
-  }
-  const testData4: TestData = {
-    [rangeKey]: 1111111111111,
-    [idKey]: '444'
-  }
-  const testData5: TestData = {
-    [rangeKey]: 1111111111111,
-    [idKey]: '555'
-  }
+  const testData: TestData[] = [
+    {
+      [rangeKey]: 1111111111111,
+      [idKey]: '111'
+    },
+    {
+      [rangeKey]: 1111111111111,
+      [idKey]: '222'
+    },
+    {
+      [rangeKey]: 1111111111111,
+      [idKey]: '333'
+    },
+    {
+      [rangeKey]: 1111111111111,
+      [idKey]: '444'
+    },
+    {
+      [rangeKey]: 1111111111111,
+      [idKey]: '555'
+    }
+  ]
 
   before(async () => {
     rangebaseDb = await createRangeBase(
@@ -333,44 +339,44 @@ describe('RangeBase baselet findById', function () {
       idPrefixLength
     )
 
-    await rangebaseDb.insert(partitionName, testData1)
-    await rangebaseDb.insert(partitionName, testData2)
-    await rangebaseDb.insert(partitionName, testData3)
-    await rangebaseDb.insert(partitionName, testData4)
-    await rangebaseDb.insert(partitionName, testData5)
+    await rangebaseDb.insert(partitionName, testData[0])
+    await rangebaseDb.insert(partitionName, testData[1])
+    await rangebaseDb.insert(partitionName, testData[2])
+    await rangebaseDb.insert(partitionName, testData[3])
+    await rangebaseDb.insert(partitionName, testData[4])
   })
 
   it('should be able to binary search for an element with the same range but different ids', async function () {
     const ele1 = await rangebaseDb.queryById(
       partitionName,
-      testData1[rangeKey],
-      testData1[idKey]
+      testData[0][rangeKey],
+      testData[0][idKey]
     )
-    expect(ele1).to.eql(testData1)
+    expect(ele1).to.eql(testData[0])
     const ele2 = await rangebaseDb.queryById(
       partitionName,
-      testData2[rangeKey],
-      testData2[idKey]
+      testData[1][rangeKey],
+      testData[1][idKey]
     )
-    expect(ele2).to.eql(testData2)
+    expect(ele2).to.eql(testData[1])
     const ele3 = await rangebaseDb.queryById(
       partitionName,
-      testData3[rangeKey],
-      testData3[idKey]
+      testData[2][rangeKey],
+      testData[2][idKey]
     )
-    expect(ele3).to.eql(testData3)
+    expect(ele3).to.eql(testData[2])
     const ele4 = await rangebaseDb.queryById(
       partitionName,
-      testData4[rangeKey],
-      testData4[idKey]
+      testData[3][rangeKey],
+      testData[3][idKey]
     )
-    expect(ele4).to.eql(testData4)
+    expect(ele4).to.eql(testData[3])
     const ele5 = await rangebaseDb.queryById(
       partitionName,
-      testData5[rangeKey],
-      testData5[idKey]
+      testData[4][rangeKey],
+      testData[4][idKey]
     )
-    expect(ele5).to.eql(testData5)
+    expect(ele5).to.eql(testData[4])
   })
 })
 
@@ -384,38 +390,40 @@ describe('RangeBase baselet queryByCount', function () {
   const idPrefixLength = 4
   const partitionName = 'transactions'
 
-  const testData1: TestData = {
-    [rangeKey]: 1,
-    [idKey]: '111'
-  }
-  const testData2: TestData = {
-    [rangeKey]: 2,
-    [idKey]: '222'
-  }
-  const testData3: TestData = {
-    [rangeKey]: 3,
-    [idKey]: '333'
-  }
-  const testData4: TestData = {
-    [rangeKey]: 4,
-    [idKey]: '444'
-  }
-  const testData5: TestData = {
-    [rangeKey]: 5,
-    [idKey]: '555'
-  }
-  const testData6: TestData = {
-    [rangeKey]: 6,
-    [idKey]: '666'
-  }
-  const testData7: TestData = {
-    [rangeKey]: 7,
-    [idKey]: '777'
-  }
-  const testData8: TestData = {
-    [rangeKey]: 8,
-    [idKey]: '888'
-  }
+  const testData: TestData[] = [
+    {
+      [rangeKey]: 1,
+      [idKey]: '111'
+    },
+    {
+      [rangeKey]: 2,
+      [idKey]: '222'
+    },
+    {
+      [rangeKey]: 3,
+      [idKey]: '333'
+    },
+    {
+      [rangeKey]: 4,
+      [idKey]: '444'
+    },
+    {
+      [rangeKey]: 5,
+      [idKey]: '555'
+    },
+    {
+      [rangeKey]: 6,
+      [idKey]: '666'
+    },
+    {
+      [rangeKey]: 7,
+      [idKey]: '777'
+    },
+    {
+      [rangeKey]: 8,
+      [idKey]: '888'
+    }
+  ]
 
   before(async () => {
     rangebaseDb = await createRangeBase(
@@ -427,44 +435,44 @@ describe('RangeBase baselet queryByCount', function () {
       idPrefixLength
     )
 
-    await rangebaseDb.insert(partitionName, testData1)
-    await rangebaseDb.insert(partitionName, testData2)
-    await rangebaseDb.insert(partitionName, testData3)
-    await rangebaseDb.insert(partitionName, testData4)
-    await rangebaseDb.insert(partitionName, testData5)
-    await rangebaseDb.insert(partitionName, testData6)
-    await rangebaseDb.insert(partitionName, testData7)
-    await rangebaseDb.insert(partitionName, testData8)
+    await rangebaseDb.insert(partitionName, testData[0])
+    await rangebaseDb.insert(partitionName, testData[1])
+    await rangebaseDb.insert(partitionName, testData[2])
+    await rangebaseDb.insert(partitionName, testData[3])
+    await rangebaseDb.insert(partitionName, testData[4])
+    await rangebaseDb.insert(partitionName, testData[5])
+    await rangebaseDb.insert(partitionName, testData[6])
+    await rangebaseDb.insert(partitionName, testData[7])
   })
 
   it('should be able to query items by count and offset', async function () {
     const items1 = await rangebaseDb.queryByCount(partitionName, 3, 0)
     expect(items1.length).to.equal(3)
-    expect(items1).to.eql([testData8, testData7, testData6])
+    expect(items1).to.eql([testData[7], testData[6], testData[5]])
 
     const items2 = await rangebaseDb.queryByCount(partitionName, 3, 1)
     expect(items2.length).to.equal(3)
-    expect(items2).to.eql([testData7, testData6, testData5])
+    expect(items2).to.eql([testData[6], testData[5], testData[4]])
 
     const items3 = await rangebaseDb.queryByCount(partitionName, 5, 3)
     expect(items3.length).to.equal(5)
     expect(items3).to.eql([
-      testData5,
-      testData4,
-      testData3,
-      testData2,
-      testData1
+      testData[4],
+      testData[3],
+      testData[2],
+      testData[1],
+      testData[0]
     ])
 
     const items4 = await rangebaseDb.queryByCount(partitionName, 10, 2)
     expect(items4.length).to.equal(6)
     expect(items4).to.eql([
-      testData6,
-      testData5,
-      testData4,
-      testData3,
-      testData2,
-      testData1
+      testData[5],
+      testData[4],
+      testData[3],
+      testData[2],
+      testData[1],
+      testData[0]
     ])
   })
 })
