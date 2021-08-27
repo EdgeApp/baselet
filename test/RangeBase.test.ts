@@ -10,17 +10,18 @@ const rangeKey = 'createdAt'
 const idKey = 'id'
 
 type TestData = RangeData<
-  typeof rangeKey,
-  typeof idKey,
   Partial<{
     input: string
     output: string
-  }>
+  }>,
+  typeof rangeKey,
+  typeof idKey
 >
+type TestRangeBase = RangeBase<TestData, typeof rangeKey, typeof idKey>
 
 describe('RangeBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase<'createdAt', 'id', TestData>
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
   const idPrefixLength = 4
@@ -186,14 +187,15 @@ describe('RangeBase baselet', function () {
     expect(newDataFromQuery).eql(newData)
   })
   it('dumpData', async () => {
-    const data = await rangebaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await rangebaseDb.dumpData(partitionName)
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data.length).is.lessThan(testData.length)
   })
 })
 
 describe('RangeBase min/max limits', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase<'createdAt', 'id', TestData>
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 3
   const rangeKey = 'createdAt'
@@ -298,7 +300,7 @@ describe('RangeBase min/max limits', function () {
 
 describe('RangeBase baselet findById', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase<'createdAt', 'id', TestData>
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
   const rangeKey = 'createdAt'
@@ -382,7 +384,7 @@ describe('RangeBase baselet findById', function () {
 
 describe('RangeBase baselet queryByCount', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase<'createdAt', 'id', TestData>
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2
   const rangeKey = 'createdAt'

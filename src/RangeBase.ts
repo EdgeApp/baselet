@@ -12,17 +12,21 @@ import {
 } from './helpers'
 import { BaseletConfig, BaseType, DataDump } from './types'
 
-export type RangeData<RangeKey extends string, IdKey extends string, K> = {
+export type RangeData<
+  K extends RangeData = any,
+  RangeKey extends string = 'rangeKey',
+  IdKey extends string = 'idKey'
+> = {
   [key in RangeKey]: number
 } &
   { [key in IdKey]: string } &
   K
 
 export interface RangeBase<
-  RangeKey extends string,
-  IdKey extends string,
-  K = any,
-  D extends RangeData<RangeKey, IdKey, K> = RangeData<RangeKey, IdKey, K>
+  K extends RangeData = any,
+  RangeKey extends string = 'rangeKey',
+  IdKey extends string = 'idKey',
+  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
 > {
   databaseName: string
   insert(partition: string, data: D): Promise<void>
@@ -39,8 +43,10 @@ export interface RangeBase<
   ): Promise<DataDump<RangeBaseConfig<RangeKey, IdKey>, D[]>>
 }
 
-interface RangeBaseConfig<RangeKey extends string, IdKey extends string>
-  extends BaseletConfig {
+interface RangeBaseConfig<
+  RangeKey extends string = 'rangeKey',
+  IdKey extends string = 'idKey'
+> extends BaseletConfig {
   bucketSize: number
   rangeKey: RangeKey
   idKey: IdKey
@@ -58,14 +64,14 @@ interface PartitionLimit {
 }
 
 export function openRangeBase<
-  RangeKey extends string,
-  IdKey extends string,
-  K = any,
-  D extends RangeData<RangeKey, IdKey, K> = RangeData<RangeKey, IdKey, K>
+  K extends RangeData = any,
+  RangeKey extends string = 'rangeKey',
+  IdKey extends string = 'idKey',
+  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
 >(
   disklet: Disklet,
   databaseName: string
-): Promise<RangeBase<RangeKey, IdKey, K, D>> {
+): Promise<RangeBase<K, RangeKey, IdKey, D>> {
   const memlet = getOrMakeMemlet(disklet)
 
   // uses binary search
@@ -378,7 +384,7 @@ export function openRangeBase<
       }
     }
 
-    const fns: RangeBase<RangeKey, IdKey, K, D> = {
+    const fns: RangeBase<K, RangeKey, IdKey, D> = {
       databaseName,
       async insert(partition, data) {
         const { bucketSize, rangeKey, idKey } = configData
@@ -569,9 +575,10 @@ export function openRangeBase<
 }
 
 export function createRangeBase<
+  K extends RangeData,
   RangeKey extends string,
   IdKey extends string,
-  K = any
+  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
 >(
   disklet: Disklet,
   databaseName: string,
@@ -579,7 +586,7 @@ export function createRangeBase<
   rangeKey: RangeKey,
   idKey: IdKey,
   idPrefixLength = 1
-): Promise<RangeBase<RangeKey, IdKey, K>> {
+): Promise<RangeBase<K, RangeKey, IdKey, D>> {
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
@@ -599,7 +606,7 @@ export function createRangeBase<
       sizes: {}
     }
     return setConfig(disklet, databaseName, configData).then(() =>
-      openRangeBase(disklet, databaseName)
+      openRangeBase<K, RangeKey, IdKey, D>(disklet, databaseName)
     )
   })
 }
