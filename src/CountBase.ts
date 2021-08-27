@@ -10,7 +10,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType } from './types'
+import { BaseletConfig, BaseType, DataDump } from './types'
 
 interface CountBaseConfig extends BaseletConfig {
   bucketSize: number
@@ -21,22 +21,18 @@ interface CountBaseConfig extends BaseletConfig {
   }
 }
 
-export interface CountBase {
+export interface CountBase<K = any> {
   databaseName: string
-  insert(partition: string, index: number, data: any): Promise<unknown>
-  query(
-    partition: string,
-    rangeStart: number,
-    rangeEnd?: number
-  ): Promise<any[]>
+  insert(partition: string, index: number, data: K): Promise<void>
+  query(partition: string, rangeStart: number, rangeEnd?: number): Promise<K[]>
   length(partition: string): number
-  dumpData(partition: string): Promise<any>
+  dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>>
 }
 
-export function openCountBase(
+export function openCountBase<K>(
   disklet: Disklet,
   databaseName: string
-): Promise<CountBase> {
+): Promise<CountBase<K>> {
   const memlet = getOrMakeMemlet(disklet)
 
   return getConfig<CountBaseConfig>(disklet, databaseName).then(configData => {
@@ -44,9 +40,9 @@ export function openCountBase(
       throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
     }
 
-    const fns: CountBase = {
+    const fns: CountBase<K> = {
       databaseName,
-      insert(partition: string, index: number, data: any): Promise<unknown> {
+      async insert(partition: string, index: number, data: K): Promise<void> {
         const formattedPartition = checkAndFormatPartition(partition)
         let metadataChanged = false
         let partitionMetadata = configData.partitions[formattedPartition]
@@ -74,7 +70,7 @@ export function openCountBase(
 
         const bucketNumber = Math.floor(index / configData.bucketSize)
         const bucketPath = getBucketPath(databaseName, partition, bucketNumber)
-        return memlet
+        await memlet
           .getJson(bucketPath)
           .then(
             currentBucketData => currentBucketData,
@@ -100,7 +96,7 @@ export function openCountBase(
         partition: string,
         rangeStart: number = 0,
         rangeEnd: number = rangeStart
-      ): Promise<any[]> {
+      ): Promise<K[]> {
         // sanity check the range
         const bucketFetchers = []
         for (
@@ -116,7 +112,7 @@ export function openCountBase(
           bucketFetchers.push(memlet.getJson(bucketPath).catch(() => []))
         }
         return Promise.all(bucketFetchers).then(bucketList => {
-          const queryResults: any[] = []
+          const queryResults: K[] = []
           for (let i = rangeStart; i <= rangeEnd; i++) {
             const bucketNumber = Math.floor(i / configData.bucketSize)
             const dataIndex = i % configData.bucketSize
@@ -132,7 +128,7 @@ export function openCountBase(
         const partitionMetadata = configData.partitions[formattedPartition]
         return partitionMetadata?.length ?? 0
       },
-      dumpData(partition: string): Promise<any> {
+      dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>> {
         return fns.query(partition, 0, fns.length(partition) - 1).then(data => {
           return {
             config: configData,
@@ -146,11 +142,11 @@ export function openCountBase(
   })
 }
 
-export function createCountBase(
+export function createCountBase<K>(
   disklet: Disklet,
   databaseName: string,
   bucketSize: number
-): Promise<CountBase> {
+): Promise<CountBase<K>> {
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }

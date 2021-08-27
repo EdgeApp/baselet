@@ -6,13 +6,19 @@ import { CountBase, createCountBase } from '../src/CountBase'
 import { getBucketPath, getConfig } from '../src/helpers'
 import { BaseType } from '../src/types'
 
+interface TestData {
+  name: string
+  age: string
+  index: number
+}
+
 describe('CountBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let countbaseDb: CountBase
+  let countbaseDb: CountBase<TestData>
   const dbName = 'testCountdb'
   const dbBucketSize = 10
   const partitionName = 'users'
-  const dataSet = [
+  const dataSet: TestData[] = [
     { name: 'jerry', age: '2', index: 0 },
     { name: 'max', age: '12', index: 1 },
     { name: 'ana', age: '26', index: 2 },
@@ -68,7 +74,8 @@ describe('CountBase baselet', function () {
     expect(partitionLength).eql(dataSet.length)
   })
   it('dumpData', async () => {
-    const data = await countbaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await countbaseDb.dumpData(partitionName)
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data).length(dataSet.length)
   })
 })
