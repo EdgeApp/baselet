@@ -23,8 +23,7 @@ describe('HashBase baselet', function () {
     { hash: 'bytc-efgh-ijkl-mnop', input: 'ltc', output: 'eth' },
     { hash: 'abcd-hitk-ijkl-mnop', input: 'eth', output: 'bat' },
     { hash: 'zbcd-efgh-ijkl-dfop', input: 'bat', output: 'btc' },
-    { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' },
-    { hash: 'xyxy-abcd-ijkl-ddop', input: 'bat', output: 'nexo' }
+    { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' }
   ]
   it('create hashbase', async function () {
     const expectedTest = {
@@ -77,7 +76,18 @@ describe('HashBase baselet', function () {
     expect(queriedData2).eql(undefined)
   })
   it('dumpData', async () => {
-    const data = await hashbaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await hashbaseDb.dumpData('')
+
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data).keys([partitionName])
+
+    const dumpDataSet: { [hash: string]: TestData } = {}
+    for (const data of dataSet) {
+      dumpDataSet[data.hash] = data
+    }
+
+    for (const [key, value] of Object.entries(dump.data[partitionName])) {
+      expect(value).to.deep.equal(dumpDataSet[key])
+    }
   })
 })
