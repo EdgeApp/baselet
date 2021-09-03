@@ -16,8 +16,8 @@ import { BaseletConfig, BaseType, DataDump } from './types'
 export interface HashBase<K = any> {
   databaseName: string
   insert(partition: string, hash: string, data: K): Promise<void>
-  query(partition: string, hashes: string[]): Promise<K[]>
-  delete(partition: string, hashes: string[]): Promise<K[]>
+  query(partition: string, hashes: string[]): Promise<Array<K | undefined>>
+  delete(partition: string, hashes: string[]): Promise<Array<K | undefined>>
   dumpData(
     partition: string
   ): Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>>
@@ -56,7 +56,7 @@ export function openHashBase<K>(
       partition: string,
       hashes: string[],
       remove = false
-    ): Promise<K[]> {
+    ): Promise<Array<K | undefined>> {
       if (hashes.length < 1) {
         return Promise.reject(
           new Error('At least one hash is required to query database.')
@@ -90,13 +90,13 @@ export function openHashBase<K>(
         }
       }
       return Promise.all(bucketFetchers).then(() => {
-        const results: K[] = []
+        const results: Array<K | undefined> = []
         const bucketNames = new Set<string>()
         for (let inputIndex = 0; inputIndex < hashes.length; inputIndex++) {
           const bucketName = hashes[inputIndex].substring(0, prefixSize)
           bucketNames.add(bucketName)
           const bucketData = bucketDict[bucketName].bucketData
-          const hashData = bucketData[hashes[inputIndex]]
+          const hashData: K | undefined = bucketData[hashes[inputIndex]]
 
           if (remove) {
             delete bucketData[hashes[inputIndex]]
@@ -138,10 +138,10 @@ export function openHashBase<K>(
           () => setNewData()
         )
       },
-      query(partition: string, hashes: string[]): Promise<K[]> {
+      query(partition: string, hashes: string[]) {
         return find(partition, hashes)
       },
-      delete(partition: string, hashes: string[]): Promise<K[]> {
+      delete(partition: string, hashes: string[]) {
         return find(partition, hashes, true)
       },
       dumpData(
