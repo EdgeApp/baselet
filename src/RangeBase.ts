@@ -23,7 +23,7 @@ export type RangeData<
   K
 
 export interface RangeBase<
-  K extends RangeData = any,
+  K extends RangeData = RangeData,
   RangeKey extends string = 'rangeKey',
   IdKey extends string = 'idKey',
   D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
