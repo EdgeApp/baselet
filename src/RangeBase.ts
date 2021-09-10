@@ -25,22 +25,46 @@ export type RangeData<
 export interface RangeBase<
   K extends RangeData = RangeData,
   RangeKey extends string = 'rangeKey',
-  IdKey extends string = 'idKey',
-  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
+  IdKey extends string = 'idKey'
 > {
   databaseName: string
-  insert(partition: string, data: D): Promise<void>
-  query(partition: string, rangeStart: number, rangeEnd?: number): Promise<D[]>
-  queryById(partition: string, range: number, id: string): Promise<D>
-  queryByCount(partition: string, count: number, offset: number): Promise<D[]>
-  delete(partition: string, range: number, id: string): Promise<D>
-  update(partition: string, oldRange: number, newData: D): Promise<unknown>
+  insert(partition: string, data: RangeData<K, RangeKey, IdKey>): Promise<void>
+  query(
+    partition: string,
+    rangeStart: number,
+    rangeEnd?: number
+  ): Promise<Array<RangeData<K, RangeKey, IdKey>>>
+  queryById(
+    partition: string,
+    range: number,
+    id: string
+  ): Promise<RangeData<K, RangeKey, IdKey>>
+  queryByCount(
+    partition: string,
+    count: number,
+    offset: number
+  ): Promise<Array<RangeData<K, RangeKey, IdKey>>>
+  delete(
+    partition: string,
+    range: number,
+    id: string
+  ): Promise<RangeData<K, RangeKey, IdKey>>
+  update(
+    partition: string,
+    oldRange: number,
+    newData: RangeData<K, RangeKey, IdKey>
+  ): Promise<unknown>
   min(partition: string): number
   max(partition: string): number
   size(partition: string): number
   dumpData(
     partition: string
-  ): Promise<DataDump<RangeBaseConfig<RangeKey, IdKey>, D[]>>
+  ): Promise<
+    DataDump<
+      RangeBaseConfig<RangeKey, IdKey>,
+      Array<RangeData<K, RangeKey, IdKey>>
+    >
+  >
 }
 
 interface RangeBaseConfig<
@@ -66,19 +90,18 @@ interface PartitionLimit {
 export function openRangeBase<
   K extends RangeData = any,
   RangeKey extends string = 'rangeKey',
-  IdKey extends string = 'idKey',
-  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
+  IdKey extends string = 'idKey'
 >(
   disklet: Disklet,
   databaseName: string
-): Promise<RangeBase<K, RangeKey, IdKey, D>> {
+): Promise<RangeBase<K, RangeKey, IdKey>> {
   const memlet = getOrMakeMemlet(disklet)
 
   // uses binary search
   function getIndex(
     input: number | string,
     keyName: RangeKey | IdKey,
-    bucket: D[],
+    bucket: Array<RangeData<K, RangeKey, IdKey>>,
     startIndex: number = 0,
     endIndex: number = bucket.length - 1,
     findLastOccurrence: boolean = false
@@ -360,7 +383,7 @@ export function openRangeBase<
     function fetchBucketData(
       partition: string,
       num: string | number
-    ): Promise<D[]> {
+    ): Promise<Array<RangeData<K, RangeKey, IdKey>>> {
       const path = getBucketPath(databaseName, partition, num)
       return memlet.getJson(path).catch(() => [])
     }
@@ -374,7 +397,7 @@ export function openRangeBase<
     function saveBucket(
       partition: string,
       num: number,
-      data: D[]
+      data: Array<RangeData<K, RangeKey, IdKey>>
     ): Promise<unknown> {
       const path = getBucketPath(databaseName, partition, num)
       if (data.length === 0) {
@@ -384,7 +407,7 @@ export function openRangeBase<
       }
     }
 
-    const fns: RangeBase<K, RangeKey, IdKey, D> = {
+    const fns: RangeBase<K, RangeKey, IdKey> = {
       databaseName,
       async insert(partition, data) {
         const { bucketSize, rangeKey, idKey } = configData
@@ -452,7 +475,9 @@ export function openRangeBase<
       },
       query(partition = '/', rangeStart, rangeEnd = rangeStart) {
         const { bucketSize, rangeKey } = configData
-        const bucketFetchers: Array<Promise<D[]>> = []
+        const bucketFetchers: Array<
+          Promise<Array<RangeData<K, RangeKey, IdKey>>>
+        > = []
 
         if (rangeEnd < rangeStart) {
           throw new Error('rangeStart must be larger than rangeEnd')
@@ -467,7 +492,7 @@ export function openRangeBase<
         }
 
         return Promise.all(bucketFetchers).then(bucketList => {
-          let queryResults: D[] = []
+          let queryResults: Array<RangeData<K, RangeKey, IdKey>> = []
           if (bucketList.length === 1) {
             // only one bucket
             const firstRangeIndex = getIndex(
@@ -577,8 +602,7 @@ export function openRangeBase<
 export function createRangeBase<
   K extends RangeData,
   RangeKey extends string,
-  IdKey extends string,
-  D extends RangeData<K, RangeKey, IdKey> = RangeData<K, RangeKey, IdKey>
+  IdKey extends string
 >(
   disklet: Disklet,
   databaseName: string,
@@ -586,7 +610,7 @@ export function createRangeBase<
   rangeKey: RangeKey,
   idKey: IdKey,
   idPrefixLength = 1
-): Promise<RangeBase<K, RangeKey, IdKey, D>> {
+): Promise<RangeBase<K, RangeKey, IdKey>> {
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
@@ -606,7 +630,7 @@ export function createRangeBase<
       sizes: {}
     }
     return setConfig(disklet, databaseName, configData).then(() =>
-      openRangeBase<K, RangeKey, IdKey, D>(disklet, databaseName)
+      openRangeBase<K, RangeKey, IdKey>(disklet, databaseName)
     )
   })
 }
