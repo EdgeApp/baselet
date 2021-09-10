@@ -7,6 +7,6 @@ export {
 
 export { BaseType } from './types'
 export { openBase } from './common'
-export { createCountBase } from './CountBase'
-export { createHashBase } from './HashBase'
-export { createRangeBase } from './RangeBase'
+export { createCountBase, openCountBase } from './CountBase'
+export { createHashBase, openHashBase } from './HashBase'
+export { createRangeBase, openRangeBase } from './RangeBase'
