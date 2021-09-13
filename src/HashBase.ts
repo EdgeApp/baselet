@@ -38,7 +38,7 @@ interface BucketDictionary<K> {
 }
 
 interface DataDumpDataset<K> {
-  [pathOrPartition: string]: K | DataDumpDataset<K>
+  [partition: string]: { [path: string]: K }
 }
 
 export async function openHashBase<K>(
@@ -147,45 +147,58 @@ export async function openHashBase<K>(
     },
 
     async dumpData(
-      partition: string
+      partition: string = ''
     ): Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>> {
-      const dump = (d: Disklet): Promise<DataDumpDataset<K>> => {
-        let data: DataDumpDataset<K> = {}
-        return d.list().then(listing => {
-          return Promise.all(
-            Object.keys(listing).map(path => {
-              if (getConfigPath(databaseName).includes(path)) {
-                return
-              }
+      const datatDumpDataset: DataDumpDataset<K> = {}
 
-              const type = listing[path]
-              if (type === 'folder') {
-                return dump(navigateDisklet(d, path)).then(folderData => {
-                  data[path] = folderData
-                })
-              }
-              if (type === 'file') {
-                return d.getText(path).then(fileData => {
-                  data = { ...data, ...JSON.parse(fileData) }
-                })
-              }
+      // Recursive function for reading files/folders in the partition
+      // disklet to accumulate data as a dataDumpDataset
+      const dump = async (
+        d: Disklet,
+        partition: string = ''
+      ): Promise<void> => {
+        const listing = await d.list()
+        const promises = Object.keys(listing).map(async path => {
+          if (getConfigPath(databaseName).includes(path)) {
+            return
+          }
 
-              throw new Error(`Unknown listing type ${type}`)
-            })
-          ).then(() => data)
+          const type = listing[path]
+          if (type === 'folder') {
+            // Assert that the partition is not defined because we should
+            // only expect to recurse one folder level in the disklet.
+            if (partition !== '')
+              throw new Error('Unexpected partition hierarchy')
+
+            // Recurse into folder using the path as the partition key.
+            return dump(navigateDisklet(d, path), path)
+          }
+          if (type === 'file') {
+            // Write the file to the dataDumpDataset
+            const fileData = await d.getText(path)
+            datatDumpDataset[partition] = {
+              ...datatDumpDataset[partition],
+              ...JSON.parse(fileData)
+            }
+            return
+          }
+
+          throw new Error(`Unknown listing type ${type}`)
         })
+        await Promise.all(promises)
       }
 
       const partitionDisklet = navigateDisklet(
         disklet,
         getPartitionPath(databaseName, partition)
       )
-      return dump(partitionDisklet).then(data => {
-        return {
-          config: configData,
-          data
-        }
-      })
+
+      await dump(partitionDisklet, partition)
+
+      return {
+        config: configData,
+        data: datatDumpDataset
+      }
     }
   }
 
