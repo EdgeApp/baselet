@@ -41,10 +41,10 @@ interface DataDumpDataset<K> {
   [partition: string]: { [path: string]: K }
 }
 
-export async function openHashBase<K>(
+export async function openHashBase<B extends HashBase<K>, K = any>(
   disklet: Disklet,
   databaseName: string
-): Promise<HashBase<K>> {
+): Promise<B> {
   const memlet = getOrMakeMemlet(disklet)
 
   const configData = await getConfig<HashBaseConfig>(disklet, databaseName)
@@ -116,7 +116,7 @@ export async function openHashBase<K>(
     return results
   }
 
-  const out: HashBase<K> = {
+  const out = {
     databaseName,
 
     async insert(partition: string, hash: string, data: K): Promise<void> {
@@ -205,11 +205,11 @@ export async function openHashBase<K>(
   return out
 }
 
-export async function createHashBase<K>(
+export async function createHashBase<B extends HashBase>(
   disklet: Disklet,
   databaseName: string,
   prefixSize: number
-): Promise<HashBase<K>> {
+): Promise<B> {
   const dbName = checkDatabaseName(databaseName)
   if (!isPositiveInteger(prefixSize)) {
     throw new Error(`prefixSize must be a number greater than 0`)
@@ -226,5 +226,5 @@ export async function createHashBase<K>(
   }
   await setConfig(disklet, dbName, configData)
 
-  return openHashBase<K>(disklet, dbName)
+  return openHashBase<B>(disklet, dbName)
 }
