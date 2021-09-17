@@ -23,6 +23,8 @@ export interface RangeBase<
   RangeKey extends string,
   IdKey extends string
 > {
+  rangeKey: RangeKey
+  idKey: IdKey
   databaseName: string
   insert(
     partition: string,
@@ -400,6 +402,8 @@ export async function openRangeBase<
   }
 
   const out: RangeBase<K, RangeKey, IdKey> = {
+    rangeKey: configData.rangeKey,
+    idKey: configData.idKey,
     databaseName,
 
     async insert(partition, data) {
