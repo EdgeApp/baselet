@@ -27,6 +27,8 @@ export interface RangeBase<
   RangeKey extends string = 'rangeKey',
   IdKey extends string = 'idKey'
 > {
+  rangeKey: RangeKey
+  idKey: IdKey
   databaseName: string
   insert(partition: string, data: RangeData<K, RangeKey, IdKey>): Promise<void>
   query(
@@ -408,6 +410,8 @@ export function openRangeBase<
     }
 
     const fns: RangeBase<K, RangeKey, IdKey> = {
+      rangeKey: configData.rangeKey,
+      idKey: configData.idKey,
       databaseName,
       async insert(partition, data) {
         const { bucketSize, rangeKey, idKey } = configData
