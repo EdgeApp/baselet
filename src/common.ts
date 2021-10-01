@@ -25,26 +25,17 @@ export async function openBase<
   disklet: Disklet,
   databaseName: string
 ): Promise<CountBase<K> | HashBase<K> | RangeBase<K, RangeKey, IdKey>> {
-  return disklet
+  const config: BaseletConfig = await disklet
     .getText(`${databaseName}/config.json`)
-    .then(serializedConfig => JSON.parse(serializedConfig) as BaseletConfig)
-    .then(configData => {
-      let baselet: Promise<
-        CountBase<K> | HashBase<K> | RangeBase<K, RangeKey, IdKey>
-      >
-      switch (configData.type) {
-        case BaseType.CountBase:
-          baselet = openCountBase(disklet, databaseName)
-          break
-        case BaseType.HashBase:
-          baselet = openHashBase(disklet, databaseName)
-          break
-        case BaseType.RangeBase:
-          baselet = openRangeBase(disklet, databaseName)
-          break
-        default:
-          throw new Error('Database is of an unknown type')
-      }
-      return baselet
-    })
+    .then(serializedConfig => JSON.parse(serializedConfig))
+  switch (config.type) {
+    case BaseType.CountBase:
+      return openCountBase(disklet, databaseName)
+    case BaseType.HashBase:
+      return openHashBase(disklet, databaseName)
+    case BaseType.RangeBase:
+      return openRangeBase(disklet, databaseName)
+    default:
+      throw new Error(`Unknown base type: ${config.type}`)
+  }
 }
