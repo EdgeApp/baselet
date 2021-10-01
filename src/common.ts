@@ -2,18 +2,36 @@ import { Disklet } from 'disklet'
 
 import { CountBase, openCountBase } from './CountBase'
 import { HashBase, openHashBase } from './HashBase'
-import { openRangeBase, RangeBase } from './RangeBase'
+import { openRangeBase, RangeBase, RangeRecord } from './RangeBase'
 import { BaseletConfig, BaseType } from './types'
 
-export function openBase<K>(
+export async function openBase<K>(
   disklet: Disklet,
   databaseName: string
-): Promise<CountBase<K> | HashBase<K> | RangeBase> {
+): Promise<CountBase<K> | HashBase<K>>
+export async function openBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+>(
+  disklet: Disklet,
+  databaseName: string
+): Promise<RangeBase<K, RangeKey, IdKey>>
+export async function openBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+>(
+  disklet: Disklet,
+  databaseName: string
+): Promise<CountBase<K> | HashBase<K> | RangeBase<K, RangeKey, IdKey>> {
   return disklet
     .getText(`${databaseName}/config.json`)
     .then(serializedConfig => JSON.parse(serializedConfig) as BaseletConfig)
     .then(configData => {
-      let baselet: Promise<CountBase<K> | HashBase<K> | RangeBase>
+      let baselet: Promise<
+        CountBase<K> | HashBase<K> | RangeBase<K, RangeKey, IdKey>
+      >
       switch (configData.type) {
         case BaseType.CountBase:
           baselet = openCountBase(disklet, databaseName)

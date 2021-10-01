@@ -3,55 +3,66 @@ import { makeMemoryDisklet } from 'disklet'
 import { describe, it } from 'mocha'
 
 import { getBucketPath, getConfig } from '../src/helpers'
-import { createRangeBase, RangeBase, RangeBaseData } from '../src/RangeBase'
+import { createRangeBase, RangeBase, RangeRecord } from '../src/RangeBase'
 import { BaseType } from '../src/types'
+
+const rangeKey = 'createdAt'
+const idKey = 'id'
+
+type TestData = RangeRecord<
+  Partial<{
+    input: string
+    output: string
+  }>,
+  typeof rangeKey,
+  typeof idKey
+>
+type TestRangeBase = RangeBase<TestData, typeof rangeKey, typeof idKey>
 
 describe('RangeBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
-  const rangeKey = 'createdAt'
-  const idKey = 'id'
   const idPrefixLength = 4
   const partitionName = 'transactions'
-  const testData1: RangeBaseData = {
+  const testData1: TestData = {
     [rangeKey]: 1594734520,
     [idKey]: 'abcd-efgh-ijkl-mnop',
     input: 'btc',
     output: 'eth'
   }
-  const testData2: RangeBaseData = {
+  const testData2: TestData = {
     [rangeKey]: 1594734520,
     [idKey]: 'bytc-efgh-ijkl-mnop',
     input: 'ltc',
     output: 'eth'
   }
-  const testData3: RangeBaseData = {
+  const testData3: TestData = {
     [rangeKey]: 1594484520,
     [idKey]: 'abcd-hitk-ijkl-mnop',
     input: 'eth',
     output: 'bat'
   }
-  const testData4: RangeBaseData = {
+  const testData4: TestData = {
     [rangeKey]: 1579073917,
     [idKey]: 'zbcd-efgh-ijkl-dfop',
     input: 'bat',
     output: 'btc'
   }
-  const testData5: RangeBaseData = {
+  const testData5: TestData = {
     [rangeKey]: 1594734520,
     [idKey]: 'zbcd-abcd-ijkl-ddop',
     input: 'bat',
     output: 'ltc'
   }
-  const testData6: RangeBaseData = {
+  const testData6: TestData = {
     [rangeKey]: 1594736520,
     [idKey]: 'xyxy-abcd-ijkl-ddop',
     input: 'bat',
     output: 'nexo'
   }
-  const testData7: RangeBaseData = {
+  const testData7: TestData = {
     [rangeKey]: 1234,
     [idKey]: 'zzzz-abcd-ijkl-ddop',
     input: 'bat',
@@ -96,7 +107,7 @@ describe('RangeBase baselet', function () {
       getBucketPath(dbName, partitionName, bucket)
     )
     const storedData = JSON.parse(storedBucket).find(
-      (item: RangeBaseData) => item[idKey] === testData1[idKey]
+      (item: TestData) => item[idKey] === testData1[idKey]
     )
     expect(storedData).eql(testData1)
     expect(rangebaseDb.size(partitionName)).equal(7)
@@ -181,32 +192,32 @@ describe('RangeBase baselet', function () {
 
 describe('RangeBase min/max limits', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 3
   const rangeKey = 'createdAt'
   const idKey = 'id'
   const idPrefixLength = 4
   const partitionName = 'transactions'
-  const testData1: RangeBaseData = {
+  const testData1: TestData = {
     [rangeKey]: 0,
     [idKey]: 'abcd-efgh-ijkl-mnop',
     input: 'btc',
     output: 'eth'
   }
-  const testData2: RangeBaseData = {
+  const testData2: TestData = {
     [rangeKey]: 2,
     [idKey]: 'bytc-efgh-ijkl-mnop',
     input: 'ltc',
     output: 'eth'
   }
-  const testData3: RangeBaseData = {
+  const testData3: TestData = {
     [rangeKey]: 4,
     [idKey]: 'abcd-hitk-ijkl-mnop',
     input: 'eth',
     output: 'bat'
   }
-  const testData4: RangeBaseData = {
+  const testData4: TestData = {
     [rangeKey]: 5,
     [idKey]: 'zbcd-efgh-ijkl-dfop',
     input: 'bat',
@@ -284,7 +295,7 @@ describe('RangeBase min/max limits', function () {
 
 describe('RangeBase baselet findById', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
   const rangeKey = 'createdAt'
@@ -292,23 +303,23 @@ describe('RangeBase baselet findById', function () {
   const idPrefixLength = 4
   const partitionName = 'transactions'
 
-  const testData1: RangeBaseData = {
+  const testData1: TestData = {
     [rangeKey]: 1111111111111,
     [idKey]: '111'
   }
-  const testData2: RangeBaseData = {
+  const testData2: TestData = {
     [rangeKey]: 1111111111111,
     [idKey]: '222'
   }
-  const testData3: RangeBaseData = {
+  const testData3: TestData = {
     [rangeKey]: 1111111111111,
     [idKey]: '333'
   }
-  const testData4: RangeBaseData = {
+  const testData4: TestData = {
     [rangeKey]: 1111111111111,
     [idKey]: '444'
   }
-  const testData5: RangeBaseData = {
+  const testData5: TestData = {
     [rangeKey]: 1111111111111,
     [idKey]: '555'
   }
@@ -366,7 +377,7 @@ describe('RangeBase baselet findById', function () {
 
 describe('RangeBase baselet queryByCount', function () {
   const disklet = makeMemoryDisklet()
-  let rangebaseDb: RangeBase
+  let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2
   const rangeKey = 'createdAt'
@@ -374,35 +385,35 @@ describe('RangeBase baselet queryByCount', function () {
   const idPrefixLength = 4
   const partitionName = 'transactions'
 
-  const testData1: RangeBaseData = {
+  const testData1: TestData = {
     [rangeKey]: 1,
     [idKey]: '111'
   }
-  const testData2: RangeBaseData = {
+  const testData2: TestData = {
     [rangeKey]: 2,
     [idKey]: '222'
   }
-  const testData3: RangeBaseData = {
+  const testData3: TestData = {
     [rangeKey]: 3,
     [idKey]: '333'
   }
-  const testData4: RangeBaseData = {
+  const testData4: TestData = {
     [rangeKey]: 4,
     [idKey]: '444'
   }
-  const testData5: RangeBaseData = {
+  const testData5: TestData = {
     [rangeKey]: 5,
     [idKey]: '555'
   }
-  const testData6: RangeBaseData = {
+  const testData6: TestData = {
     [rangeKey]: 6,
     [idKey]: '666'
   }
-  const testData7: RangeBaseData = {
+  const testData7: TestData = {
     [rangeKey]: 7,
     [idKey]: '777'
   }
-  const testData8: RangeBaseData = {
+  const testData8: TestData = {
     [rangeKey]: 8,
     [idKey]: '888'
   }

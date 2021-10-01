@@ -10,34 +10,69 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType } from './types'
+import { BaseletConfig, BaseType, DataDump } from './types'
 
-export interface RangeBase {
+export type RangeRecord<K, RangeKey extends string, IdKey extends string> = {
+  [key in RangeKey]: number
+} &
+  { [key in IdKey]: string } &
+  K
+
+export interface RangeBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+> {
   databaseName: string
-  insert(partition: string, data: any): Promise<unknown>
+  insert(
+    partition: string,
+    data: RangeRecord<K, RangeKey, IdKey>
+  ): Promise<void>
   query(
     partition: string,
     rangeStart: number,
     rangeEnd?: number
-  ): Promise<any[]>
-  queryById(partition: string, range: number, id: string): Promise<any>
-  queryByCount(partition: string, count: number, offset: number): Promise<any[]>
-  delete(partition: string, range: number, id: string): Promise<any>
-  update(partition: string, oldRange: number, newData: any): Promise<unknown>
+  ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
+  queryById(
+    partition: string,
+    range: number,
+    id: string
+  ): Promise<RangeRecord<K, RangeKey, IdKey>>
+  queryByCount(
+    partition: string,
+    count: number,
+    offset: number
+  ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
+  delete(
+    partition: string,
+    range: number,
+    id: string
+  ): Promise<RangeRecord<K, RangeKey, IdKey>>
+  update(
+    partition: string,
+    oldRange: number,
+    newData: RangeRecord<K, RangeKey, IdKey>
+  ): Promise<void>
   min(partition: string): number
   max(partition: string): number
   size(partition: string): number
-  dumpData(partition: string): Promise<any>
+  dumpData(
+    partition: string
+  ): Promise<
+    DataDump<
+      RangeBaseConfig<RangeKey, IdKey>,
+      Array<RangeRecord<K, RangeKey, IdKey>>
+    >
+  >
 }
 
-export interface RangeBaseData {
-  [someKey: string]: any
-}
-
-interface RangeBaseConfig extends BaseletConfig {
+interface RangeBaseConfig<
+  RangeKey extends string = 'rangeKey',
+  IdKey extends string = 'idKey'
+> extends BaseletConfig {
   bucketSize: number
-  rangeKey: string
-  idKey: string
+  rangeKey: RangeKey
+  idKey: IdKey
   idPrefixLength: number
   limits: PartitionLimits
   sizes: { [partition: string]: number }
@@ -51,17 +86,21 @@ interface PartitionLimit {
   maxRange?: number
 }
 
-export async function openRangeBase(
+export async function openRangeBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+>(
   disklet: Disklet,
   databaseName: string
-): Promise<RangeBase> {
+): Promise<RangeBase<K, RangeKey, IdKey>> {
   const memlet = getOrMakeMemlet(disklet)
 
   // uses binary search
   function getIndex(
     input: number | string,
-    keyName: string,
-    bucket: RangeBaseData[],
+    keyName: RangeKey | IdKey,
+    bucket: Array<RangeRecord<K, RangeKey, IdKey>>,
     startIndex: number = 0,
     endIndex: number = bucket.length - 1,
     findLastOccurrence: boolean = false
@@ -71,9 +110,9 @@ export async function openRangeBase(
   } {
     if (bucket.length === 0) return { found: false, index: 0 }
 
-    let minIndex: number = startIndex
-    let maxIndex: number = endIndex
-    let currentIndex: number = 0
+    let minIndex = startIndex
+    let maxIndex = endIndex
+    let currentIndex = 0
     let currentElement
 
     if (
@@ -126,11 +165,17 @@ export async function openRangeBase(
     }
     return {
       found: false,
-      index: currentElement < input ? currentIndex + 1 : currentIndex
+      index:
+        currentElement != null && currentElement < input
+          ? currentIndex + 1
+          : currentIndex
     }
   }
 
-  const configData = await getConfig<RangeBaseConfig>(disklet, databaseName)
+  const configData = await getConfig<RangeBaseConfig<RangeKey, IdKey>>(
+    disklet,
+    databaseName
+  )
   if (configData.type !== BaseType.RangeBase) {
     throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
   }
@@ -182,11 +227,11 @@ export async function openRangeBase(
    * @param data
    * @param deleted
    */
-  function updateMinMax(
+  async function updateMinMax(
     partition: string,
     data: any,
     deleted: boolean
-  ): Promise<unknown> | undefined {
+  ): Promise<void> {
     const { rangeKey, limits } = configData
     const range: number = data[rangeKey]
     const partitionLimits = limits[partition] ?? (limits[partition] = {})
@@ -330,7 +375,7 @@ export async function openRangeBase(
   function fetchBucketData(
     partition: string,
     num: string | number
-  ): Promise<any[]> {
+  ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>> {
     const path = getBucketPath(databaseName, partition, num)
     return memlet.getJson(path).catch(() => [])
   }
@@ -341,11 +386,11 @@ export async function openRangeBase(
    * @param num Bucket number to fetch
    * @param data Array of items to save
    */
-  function saveBucket(
+  async function saveBucket(
     partition: string,
     num: number,
-    data: any[]
-  ): Promise<unknown> {
+    data: Array<RangeRecord<K, RangeKey, IdKey>>
+  ): Promise<void> {
     const path = getBucketPath(databaseName, partition, num)
     if (data.length === 0) {
       return memlet.delete(path)
@@ -354,10 +399,10 @@ export async function openRangeBase(
     }
   }
 
-  const out: RangeBase = {
+  const out: RangeBase<K, RangeKey, IdKey> = {
     databaseName,
 
-    async insert(partition: string, data: any): Promise<unknown> {
+    async insert(partition, data) {
       const { bucketSize, rangeKey, idKey } = configData
       if (
         !(
@@ -416,13 +461,11 @@ export async function openRangeBase(
       await setConfig(disklet, databaseName, configData)
     },
 
-    async query(
-      partition: string = '/',
-      rangeStart: number,
-      rangeEnd: number = rangeStart
-    ): Promise<any[]> {
+    async query(partition = '/', rangeStart, rangeEnd = rangeStart) {
       const { bucketSize, rangeKey } = configData
-      const bucketFetchers: any[] = []
+      const bucketFetchers: Array<
+        Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
+      > = []
 
       if (rangeEnd < rangeStart) {
         throw new Error('rangeStart must be larger than rangeEnd')
@@ -436,8 +479,8 @@ export async function openRangeBase(
         bucketFetchers.push(fetchBucketData(partition, bucketNumber))
       }
 
-      const bucketList = await Promise.all<any>(bucketFetchers)
-      let queryResults: any[] = []
+      const bucketList = await Promise.all(bucketFetchers)
+      let queryResults: Array<RangeRecord<K, RangeKey, IdKey>> = []
       if (bucketList.length === 1) {
         // only one bucket
         const firstRangeIndex = getIndex(rangeStart, rangeKey, bucketList[0])
@@ -491,29 +534,23 @@ export async function openRangeBase(
       return queryResults
     },
 
-    queryById(partition: string, range: number, id: string): Promise<any> {
+    queryById(partition, range, id) {
       return find(partition, range, id)
     },
 
-    queryByCount(partition: string, count: number, offset = 0): Promise<any[]> {
+    queryByCount(partition, count, offset = 0) {
       return queryByCount(partition, count, offset)
     },
 
-    async delete(partition: string, range: number, id: string): Promise<any> {
-      const data = await find(partition, range, id, true)
-      const size = configData.sizes[partition] ?? 0
-
-      configData.sizes[partition] = size - 1
-      await setConfig(disklet, databaseName, configData)
-
-      return data
+    delete(partition, range, id) {
+      return find(partition, range, id, true).then(data => {
+        const size = configData.sizes[partition] ?? 0
+        configData.sizes[partition] = size - 1
+        return setConfig(disklet, databaseName, configData).then(() => data)
+      })
     },
 
-    async update(
-      partition: string,
-      oldRangeKey: number,
-      newData: any
-    ): Promise<unknown> {
+    async update(partition, oldRangeKey, newData) {
       const existingData = await out.delete(
         partition,
         oldRangeKey,
@@ -523,22 +560,22 @@ export async function openRangeBase(
         throw new Error('Cannot update a non-existing element')
       }
 
-      return out.insert(partition, newData)
+      await out.insert(partition, newData)
     },
 
-    min(partition: string): number {
+    min(partition) {
       return configData.limits[partition]?.minRange ?? 0
     },
 
-    max(partition: string): number {
+    max(partition) {
       return configData.limits[partition]?.maxRange ?? 0
     },
 
-    size(partition: string): number {
+    size(partition) {
       return configData.sizes[partition] ?? 0
     },
 
-    async dumpData(partition: string): Promise<any> {
+    async dumpData(partition) {
       const min = out.min(partition) ?? 0
       const data = await out.query(partition, min, out.max(partition))
       return {
@@ -551,14 +588,18 @@ export async function openRangeBase(
   return out
 }
 
-export async function createRangeBase(
+export async function createRangeBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+>(
   disklet: Disklet,
   databaseName: string,
   bucketSize: number,
-  rangeKey: string,
-  idKey: string,
+  rangeKey: RangeKey,
+  idKey: IdKey,
   idPrefixLength = 1
-): Promise<RangeBase> {
+): Promise<RangeBase<K, RangeKey, IdKey>> {
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
@@ -568,7 +609,7 @@ export async function createRangeBase(
     throw new Error(`database ${dbName} already exists`)
   }
 
-  const configData: RangeBaseConfig = {
+  const configData: RangeBaseConfig<RangeKey, IdKey> = {
     type: BaseType.RangeBase,
     bucketSize: Math.floor(bucketSize),
     rangeKey,
