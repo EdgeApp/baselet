@@ -187,8 +187,9 @@ describe('RangeBase baselet', function () {
     expect(newDataFromQuery).eql(newData)
   })
   it('dumpData', async () => {
-    const data = await rangebaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await rangebaseDb.dumpData(partitionName)
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data.length).is.lessThan(testData.length)
   })
 })
 
