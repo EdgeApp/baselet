@@ -10,7 +10,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseType, CountBaseConfig, DataDump } from './types'
+import { BaseType, CountBaseConfig, CountBaseOptions, DataDump } from './types'
 
 export interface CountBase<K> {
   databaseName: string
@@ -123,9 +123,9 @@ export async function openCountBase<K>(
 
 export async function createCountBase<K>(
   disklet: Disklet,
-  databaseName: string,
-  bucketSize: number
+  options: CountBaseOptions
 ): Promise<CountBase<K>> {
+  const { name: databaseName, bucketSize } = options
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
@@ -148,4 +148,18 @@ export async function createCountBase<K>(
   await setConfig(disklet, dbName, configData)
 
   return openCountBase(disklet, dbName)
+}
+
+export async function createOrOpenCountBase<K>(
+  disklet: Disklet,
+  options: CountBaseOptions
+): Promise<CountBase<K>> {
+  try {
+    return await createCountBase(disklet, options)
+  } catch (err) {
+    if (err instanceof Error && !err.message.includes('already exists')) {
+      throw err
+    }
+    return openCountBase(disklet, options.name)
+  }
 }

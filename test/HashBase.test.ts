@@ -30,7 +30,7 @@ describe('HashBase baselet', function () {
       type: BaseType.HashBase,
       prefixSize
     }
-    hashbaseDb = await createHashBase(disklet, dbName, prefixSize)
+    hashbaseDb = await createHashBase(disklet, { name: dbName, prefixSize })
     expect(await getConfig(disklet, dbName)).eql(expectedTest)
   })
   it('insert data', async function () {

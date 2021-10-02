@@ -7,6 +7,28 @@ export enum BaseType {
 }
 
 /**
+ * Option types are parameter types for create functions.
+ */
+export interface HashBaseOptions {
+  name: string
+  prefixSize: number
+}
+export interface CountBaseOptions {
+  name: string
+  bucketSize: number
+}
+export interface RangeBaseOptions<
+  RangeKey extends string,
+  IdKey extends string
+> {
+  name: string
+  bucketSize: number
+  rangeKey: RangeKey
+  idKey: IdKey
+  idPrefixLength?: number
+}
+
+/**
  * Config types describe the baselet configuration and are saved to the disk.
  * This allows for baselet type checking and configuration persistence
  * at runtime.

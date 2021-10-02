@@ -80,14 +80,13 @@ describe('RangeBase baselet', function () {
       limits: {},
       sizes: {}
     }
-    rangebaseDb = await createRangeBase(
-      disklet,
-      dbName,
+    rangebaseDb = await createRangeBase(disklet, {
+      name: dbName,
       bucketSize,
       rangeKey,
       idKey,
       idPrefixLength
-    )
+    })
     const config = await getConfig(disklet, dbName)
     expect(config).to.eql(expectedTest)
   })
@@ -230,14 +229,13 @@ describe('RangeBase min/max limits', function () {
   ]
 
   before('setup', async function () {
-    rangebaseDb = await createRangeBase(
-      disklet,
-      dbName,
+    rangebaseDb = await createRangeBase(disklet, {
+      name: dbName,
       bucketSize,
       rangeKey,
       idKey,
       idPrefixLength
-    )
+    })
   })
 
   function testMinMax(min: any, max: any): void {
@@ -332,14 +330,13 @@ describe('RangeBase baselet findById', function () {
   ]
 
   before(async () => {
-    rangebaseDb = await createRangeBase(
-      disklet,
-      dbName,
+    rangebaseDb = await createRangeBase(disklet, {
+      name: dbName,
       bucketSize,
       rangeKey,
       idKey,
       idPrefixLength
-    )
+    })
 
     await rangebaseDb.insert(partitionName, testData[0])
     await rangebaseDb.insert(partitionName, testData[1])
@@ -428,14 +425,13 @@ describe('RangeBase baselet queryByCount', function () {
   ]
 
   before(async () => {
-    rangebaseDb = await createRangeBase(
-      disklet,
-      dbName,
+    rangebaseDb = await createRangeBase(disklet, {
+      name: dbName,
       bucketSize,
       rangeKey,
       idKey,
       idPrefixLength
-    )
+    })
 
     await rangebaseDb.insert(partitionName, testData[0])
     await rangebaseDb.insert(partitionName, testData[1])

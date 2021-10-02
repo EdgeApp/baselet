@@ -11,7 +11,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseType, DataDump, HashBaseConfig } from './types'
+import { BaseType, DataDump, HashBaseConfig, HashBaseOptions } from './types'
 
 export interface HashBase<K> {
   databaseName: string
@@ -203,10 +203,10 @@ export async function openHashBase<K>(
 
 export async function createHashBase<K>(
   disklet: Disklet,
-  databaseName: string,
-  prefixSize: number
+  options: HashBaseOptions
 ): Promise<HashBase<K>> {
-  const dbName = checkDatabaseName(databaseName)
+  const { prefixSize } = options
+  const dbName = checkDatabaseName(options.name)
   if (!isPositiveInteger(prefixSize)) {
     throw new Error(`prefixSize must be a number greater than 0`)
   }
@@ -222,5 +222,19 @@ export async function createHashBase<K>(
   }
   await setConfig(disklet, dbName, configData)
 
-  return openHashBase<K>(disklet, dbName)
+  return openHashBase(disklet, dbName)
+}
+
+export async function createOrOpenHashBase<K>(
+  disklet: Disklet,
+  options: HashBaseOptions
+): Promise<HashBase<K>> {
+  try {
+    return await createHashBase(disklet, options)
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes('already exists')) {
+      throw error
+    }
+    return openHashBase(disklet, options.name)
+  }
 }

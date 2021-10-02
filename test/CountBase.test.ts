@@ -15,8 +15,10 @@ interface TestData {
 describe('CountBase baselet', function () {
   const disklet = makeMemoryDisklet()
   let countbaseDb: CountBase<TestData>
-  const dbName = 'testCountdb'
-  const dbBucketSize = 10
+  const options = {
+    name: 'testCountdb',
+    bucketSize: 10
+  }
   const partitionName = 'users'
   const dataSet: TestData[] = [
     { name: 'jerry', age: '2', index: 0 },
@@ -29,15 +31,15 @@ describe('CountBase baselet', function () {
   it('create countbase', async function () {
     const expectedTest: CountBaseConfig = {
       type: BaseType.CountBase,
-      bucketSize: dbBucketSize,
+      bucketSize: options.bucketSize,
       partitions: {
         '': {
           length: 0
         }
       }
     }
-    countbaseDb = await createCountBase(disklet, dbName, dbBucketSize)
-    expect(await getConfig(disklet, dbName)).eql(expectedTest)
+    countbaseDb = await createCountBase(disklet, options)
+    expect(await getConfig(disklet, options.name)).eql(expectedTest)
   })
   it('empty data', async function () {
     const [data] = await countbaseDb.query(partitionName, 0)
@@ -50,9 +52,9 @@ describe('CountBase baselet', function () {
     }
 
     console.log()
-    const storedConfig = await getConfig<any>(disklet, dbName)
-    const bucketNumber = Math.floor(dataSet[0].index / dbBucketSize)
-    const buckePath = getBucketPath(dbName, partitionName, bucketNumber)
+    const storedConfig = await getConfig<any>(disklet, options.name)
+    const bucketNumber = Math.floor(dataSet[0].index / options.bucketSize)
+    const buckePath = getBucketPath(options.name, partitionName, bucketNumber)
     const storedData = JSON.parse(await disklet.getText(buckePath))
     expect(storedConfig.partitions[partitionName].length).eql(dataSet.length)
     expect(storedData[dataSet[0].index]).eql(dataSet[0])

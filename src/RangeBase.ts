@@ -10,7 +10,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseType, DataDump, RangeBaseConfig } from './types'
+import { BaseType, DataDump, RangeBaseConfig, RangeBaseOptions } from './types'
 
 export type RangeRecord<K, RangeKey extends string, IdKey extends string> = {
   [key in RangeKey]: number
@@ -577,16 +577,14 @@ export async function createRangeBase<
   IdKey extends string
 >(
   disklet: Disklet,
-  databaseName: string,
-  bucketSize: number,
-  rangeKey: RangeKey,
-  idKey: IdKey,
-  idPrefixLength = 1
+  options: RangeBaseOptions<RangeKey, IdKey>
 ): Promise<RangeBase<K, RangeKey, IdKey>> {
+  const { name, bucketSize, rangeKey, idKey, idPrefixLength = 1 } = options
+
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
-  const dbName = checkDatabaseName(databaseName)
+  const dbName = checkDatabaseName(name)
   const databaseExists = await doesDatabaseExist(disklet, dbName)
   if (databaseExists) {
     throw new Error(`database ${dbName} already exists`)
@@ -604,4 +602,22 @@ export async function createRangeBase<
   await setConfig(disklet, dbName, configData)
 
   return openRangeBase(disklet, dbName)
+}
+
+export async function createOrOpenRangeBase<
+  K extends RangeRecord<any, RangeKey, IdKey>,
+  RangeKey extends string,
+  IdKey extends string
+>(
+  disklet: Disklet,
+  options: RangeBaseOptions<RangeKey, IdKey>
+): Promise<RangeBase<K, RangeKey, IdKey>> {
+  try {
+    return await createRangeBase(disklet, options)
+  } catch (error) {
+    if (error instanceof Error && !error.message.includes('already exists')) {
+      throw error
+    }
+    return openRangeBase(disklet, options.name)
+  }
 }
