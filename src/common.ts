@@ -35,7 +35,9 @@ export async function openBase<
       return openHashBase(disklet, databaseName)
     case BaseType.RangeBase:
       return openRangeBase(disklet, databaseName)
-    default:
-      throw new Error(`Unknown base type: ${config.type}`)
+    default: {
+      const type: string = (config as any)?.type
+      throw new Error(`Unknown base type: ${type}`)
+    }
   }
 }

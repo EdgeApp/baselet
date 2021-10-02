@@ -4,7 +4,7 @@ import { describe, it } from 'mocha'
 
 import { CountBase, createCountBase } from '../src/CountBase'
 import { getBucketPath, getConfig } from '../src/helpers'
-import { BaseType } from '../src/types'
+import { BaseType, CountBaseConfig } from '../src/types'
 
 interface TestData {
   name: string
@@ -27,7 +27,7 @@ describe('CountBase baselet', function () {
   ]
 
   it('create countbase', async function () {
-    const expectedTest = {
+    const expectedTest: CountBaseConfig = {
       type: BaseType.CountBase,
       bucketSize: dbBucketSize,
       partitions: {

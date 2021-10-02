@@ -4,7 +4,7 @@ import { describe, it } from 'mocha'
 
 import { createHashBase, HashBase } from '../src/HashBase'
 import { getBucketPath, getConfig } from '../src/helpers'
-import { BaseType } from '../src/types'
+import { BaseType, HashBaseConfig } from '../src/types'
 
 interface TestData {
   hash: string
@@ -26,7 +26,7 @@ describe('HashBase baselet', function () {
     { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' }
   ]
   it('create hashbase', async function () {
-    const expectedTest = {
+    const expectedTest: HashBaseConfig = {
       type: BaseType.HashBase,
       prefixSize
     }

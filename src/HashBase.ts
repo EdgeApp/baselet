@@ -11,7 +11,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType, DataDump } from './types'
+import { BaseType, DataDump, HashBaseConfig } from './types'
 
 export interface HashBase<K> {
   databaseName: string
@@ -23,8 +23,8 @@ export interface HashBase<K> {
   ): Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>>
 }
 
-interface HashBaseConfig extends BaseletConfig {
-  prefixSize: number
+interface DataDumpDataset<K> {
+  [partition: string]: { [path: string]: K }
 }
 
 interface BucketDictionary<K> {
@@ -37,17 +37,13 @@ interface BucketDictionary<K> {
   }
 }
 
-interface DataDumpDataset<K> {
-  [partition: string]: { [path: string]: K }
-}
-
 export async function openHashBase<K>(
   disklet: Disklet,
   databaseName: string
 ): Promise<HashBase<K>> {
   const memlet = getOrMakeMemlet(disklet)
 
-  const configData = await getConfig<HashBaseConfig>(disklet, databaseName)
+  const configData: HashBaseConfig = await getConfig(disklet, databaseName)
   if (configData.type !== BaseType.HashBase) {
     throw new Error(`Tried to open HashBase, but type is ${configData.type}`)
   }
@@ -222,7 +218,7 @@ export async function createHashBase<K>(
 
   const configData: HashBaseConfig = {
     type: BaseType.HashBase,
-    prefixSize: prefixSize
+    prefixSize
   }
   await setConfig(disklet, dbName, configData)
 

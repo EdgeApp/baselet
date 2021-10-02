@@ -10,7 +10,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType, DataDump } from './types'
+import { BaseType, DataDump, RangeBaseConfig } from './types'
 
 export type RangeRecord<K, RangeKey extends string, IdKey extends string> = {
   [key in RangeKey]: number
@@ -62,30 +62,10 @@ export interface RangeBase<
     partition: string
   ): Promise<
     DataDump<
-      RangeBaseConfig<RangeKey, IdKey>,
+      RangeBaseConfig<RangeBase<K, RangeKey, IdKey>>,
       Array<RangeRecord<K, RangeKey, IdKey>>
     >
   >
-}
-
-interface RangeBaseConfig<
-  RangeKey extends string = 'rangeKey',
-  IdKey extends string = 'idKey'
-> extends BaseletConfig {
-  bucketSize: number
-  rangeKey: RangeKey
-  idKey: IdKey
-  idPrefixLength: number
-  limits: PartitionLimits
-  sizes: { [partition: string]: number }
-}
-
-interface PartitionLimits {
-  [partition: string]: undefined | PartitionLimit
-}
-interface PartitionLimit {
-  minRange?: number
-  maxRange?: number
 }
 
 export async function openRangeBase<
@@ -174,10 +154,9 @@ export async function openRangeBase<
     }
   }
 
-  const configData = await getConfig<RangeBaseConfig<RangeKey, IdKey>>(
-    disklet,
-    databaseName
-  )
+  const configData: RangeBaseConfig<
+    RangeBase<K, RangeKey, IdKey>
+  > = await getConfig(disklet, databaseName)
   if (configData.type !== BaseType.RangeBase) {
     throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
   }
@@ -613,7 +592,7 @@ export async function createRangeBase<
     throw new Error(`database ${dbName} already exists`)
   }
 
-  const configData: RangeBaseConfig<RangeKey, IdKey> = {
+  const configData: RangeBaseConfig<RangeBase<K, RangeKey, IdKey>> = {
     type: BaseType.RangeBase,
     bucketSize: Math.floor(bucketSize),
     rangeKey,

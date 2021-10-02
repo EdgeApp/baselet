@@ -10,16 +10,7 @@ import {
   isPositiveInteger,
   setConfig
 } from './helpers'
-import { BaseletConfig, BaseType, DataDump } from './types'
-
-interface CountBaseConfig extends BaseletConfig {
-  bucketSize: number
-  partitions: {
-    [partitionName: string]: {
-      length: number
-    }
-  }
-}
+import { BaseType, CountBaseConfig, DataDump } from './types'
 
 export interface CountBase<K> {
   databaseName: string

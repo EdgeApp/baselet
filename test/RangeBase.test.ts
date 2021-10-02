@@ -4,7 +4,7 @@ import { describe, it } from 'mocha'
 
 import { getBucketPath, getConfig } from '../src/helpers'
 import { createRangeBase, RangeBase, RangeRecord } from '../src/RangeBase'
-import { BaseType } from '../src/types'
+import { BaseType, RangeBaseConfig } from '../src/types'
 
 const rangeKey = 'createdAt'
 const idKey = 'id'
@@ -71,7 +71,7 @@ describe('RangeBase baselet', function () {
     }
   ]
   it('create rangebase', async function () {
-    const expectedTest = {
+    const expectedTest: RangeBaseConfig = {
       type: BaseType.RangeBase,
       bucketSize,
       rangeKey,
