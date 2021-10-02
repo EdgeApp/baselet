@@ -8,12 +8,12 @@ import { BaseletConfig, BaseType } from './types'
 export function openBase<K>(
   disklet: Disklet,
   databaseName: string
-): Promise<CountBase | HashBase<K> | RangeBase> {
+): Promise<CountBase<K> | HashBase<K> | RangeBase> {
   return disklet
     .getText(`${databaseName}/config.json`)
     .then(serializedConfig => JSON.parse(serializedConfig) as BaseletConfig)
     .then(configData => {
-      let baselet: Promise<CountBase | HashBase<K> | RangeBase>
+      let baselet: Promise<CountBase<K> | HashBase<K> | RangeBase>
       switch (configData.type) {
         case BaseType.CountBase:
           baselet = openCountBase(disklet, databaseName)
