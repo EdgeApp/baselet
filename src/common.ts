@@ -5,15 +5,15 @@ import { HashBase, openHashBase } from './HashBase'
 import { openRangeBase, RangeBase } from './RangeBase'
 import { BaseletConfig, BaseType } from './types'
 
-export function openBase(
+export function openBase<K>(
   disklet: Disklet,
   databaseName: string
-): Promise<CountBase | HashBase | RangeBase> {
+): Promise<CountBase | HashBase<K> | RangeBase> {
   return disklet
     .getText(`${databaseName}/config.json`)
     .then(serializedConfig => JSON.parse(serializedConfig) as BaseletConfig)
     .then(configData => {
-      let baselet: Promise<CountBase | HashBase | RangeBase>
+      let baselet: Promise<CountBase | HashBase<K> | RangeBase>
       switch (configData.type) {
         case BaseType.CountBase:
           baselet = openCountBase(disklet, databaseName)

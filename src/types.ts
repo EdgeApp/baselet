@@ -7,3 +7,11 @@ export enum BaseType {
 export interface BaseletConfig {
   type: BaseType
 }
+
+/**
+ * The data format for baselet dump methods.
+ */
+export interface DataDump<C extends BaseletConfig, D> {
+  config: C
+  data: D
+}
