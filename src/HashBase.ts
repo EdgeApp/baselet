@@ -53,10 +53,8 @@ export async function openHashBase<K>(
     hashes: string[],
     remove = false
   ): Promise<Array<K | undefined>> {
-    if (hashes.length < 1) {
-      return Promise.reject(
-        new Error('At least one hash is required to query database.')
-      )
+    if (hashes.length === 0) {
+      return []
     }
     const { prefixSize } = configData
     const bucketFetchers = []
