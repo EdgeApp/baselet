@@ -1,5 +1,15 @@
 # Baselet
 
+## 0.2.0 (2021-10-19)
+
+### Added 
+- TypeScript types for each baselet (`CountBase`, `HashBase`, etc).
+- New `createOrOpen*` APIs for each baselet type.
+- Always include partition key on returned data from `dumpData` on `HashBase` instances.
+- Include `rangeKey` and `idKey` config values on `RangeBase` instances
+### Fixes
+- Return empty result set for empty queries in `HashBase`.
+
 ## 0.0.9 (2021-03-16)
 
 * Return default value `0` for `RangeBase` functions: `min`, `max`, `size`
