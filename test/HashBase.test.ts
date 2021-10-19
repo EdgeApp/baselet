@@ -4,28 +4,33 @@ import { describe, it } from 'mocha'
 
 import { createHashBase, HashBase } from '../src/HashBase'
 import { getBucketPath, getConfig } from '../src/helpers'
-import { BaseType } from '../src/types'
+import { BaseType, HashBaseConfig } from '../src/types'
+
+interface TestData {
+  hash: string
+  input: string
+  output: string
+}
 
 describe('HashBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let hashbaseDb: HashBase
+  let hashbaseDb: HashBase<TestData>
   const dbName = 'testHashdb'
   const prefixSize = 2
   const partitionName = 'students'
-  const dataSet = [
+  const dataSet: TestData[] = [
     { hash: 'abcd-efgh-ijkl-mnop', input: 'btc', output: 'eth' },
     { hash: 'bytc-efgh-ijkl-mnop', input: 'ltc', output: 'eth' },
     { hash: 'abcd-hitk-ijkl-mnop', input: 'eth', output: 'bat' },
     { hash: 'zbcd-efgh-ijkl-dfop', input: 'bat', output: 'btc' },
-    { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' },
-    { hash: 'xyxy-abcd-ijkl-ddop', input: 'bat', output: 'nexo' }
+    { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' }
   ]
   it('create hashbase', async function () {
-    const expectedTest = {
+    const expectedTest: HashBaseConfig = {
       type: BaseType.HashBase,
       prefixSize
     }
-    hashbaseDb = await createHashBase(disklet, dbName, prefixSize)
+    hashbaseDb = await createHashBase(disklet, { name: dbName, prefixSize })
     expect(await getConfig(disklet, dbName)).eql(expectedTest)
   })
   it('insert data', async function () {
@@ -71,7 +76,18 @@ describe('HashBase baselet', function () {
     expect(queriedData2).eql(undefined)
   })
   it('dumpData', async () => {
-    const data = await hashbaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await hashbaseDb.dumpData('')
+
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data).keys([partitionName])
+
+    const dumpDataSet: { [hash: string]: TestData } = {}
+    for (const data of dataSet) {
+      dumpDataSet[data.hash] = data
+    }
+
+    for (const [key, value] of Object.entries(dump.data[partitionName])) {
+      expect(value).to.deep.equal(dumpDataSet[key])
+    }
   })
 })

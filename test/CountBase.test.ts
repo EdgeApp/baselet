@@ -4,15 +4,23 @@ import { describe, it } from 'mocha'
 
 import { CountBase, createCountBase } from '../src/CountBase'
 import { getBucketPath, getConfig } from '../src/helpers'
-import { BaseType } from '../src/types'
+import { BaseType, CountBaseConfig } from '../src/types'
+
+interface TestData {
+  name: string
+  age: string
+  index: number
+}
 
 describe('CountBase baselet', function () {
   const disklet = makeMemoryDisklet()
-  let countbaseDb: CountBase
-  const dbName = 'testCountdb'
-  const dbBucketSize = 10
+  let countbaseDb: CountBase<TestData>
+  const options = {
+    name: 'testCountdb',
+    bucketSize: 10
+  }
   const partitionName = 'users'
-  const dataSet = [
+  const dataSet: TestData[] = [
     { name: 'jerry', age: '2', index: 0 },
     { name: 'max', age: '12', index: 1 },
     { name: 'ana', age: '26', index: 2 },
@@ -21,17 +29,17 @@ describe('CountBase baselet', function () {
   ]
 
   it('create countbase', async function () {
-    const expectedTest = {
+    const expectedTest: CountBaseConfig = {
       type: BaseType.CountBase,
-      bucketSize: dbBucketSize,
+      bucketSize: options.bucketSize,
       partitions: {
         '': {
           length: 0
         }
       }
     }
-    countbaseDb = await createCountBase(disklet, dbName, dbBucketSize)
-    expect(await getConfig(disklet, dbName)).eql(expectedTest)
+    countbaseDb = await createCountBase(disklet, options)
+    expect(await getConfig(disklet, options.name)).eql(expectedTest)
   })
   it('empty data', async function () {
     const [data] = await countbaseDb.query(partitionName, 0)
@@ -44,9 +52,9 @@ describe('CountBase baselet', function () {
     }
 
     console.log()
-    const storedConfig = await getConfig(disklet, dbName)
-    const bucketNumber = Math.floor(dataSet[0].index / dbBucketSize)
-    const buckePath = getBucketPath(dbName, partitionName, bucketNumber)
+    const storedConfig = await getConfig<any>(disklet, options.name)
+    const bucketNumber = Math.floor(dataSet[0].index / options.bucketSize)
+    const buckePath = getBucketPath(options.name, partitionName, bucketNumber)
     const storedData = JSON.parse(await disklet.getText(buckePath))
     expect(storedConfig.partitions[partitionName].length).eql(dataSet.length)
     expect(storedData[dataSet[0].index]).eql(dataSet[0])
@@ -68,7 +76,8 @@ describe('CountBase baselet', function () {
     expect(partitionLength).eql(dataSet.length)
   })
   it('dumpData', async () => {
-    const data = await countbaseDb.dumpData('')
-    expect(data).keys(['config', 'data'])
+    const dump = await countbaseDb.dumpData(partitionName)
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data).length(dataSet.length)
   })
 })
