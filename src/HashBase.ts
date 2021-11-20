@@ -1,4 +1,5 @@
-import { Disklet, navigateDisklet } from 'disklet'
+import { Disklet } from 'disklet'
+import { Memlet, navigateMemlet } from 'memlet'
 
 import {
   checkDatabaseName,
@@ -38,12 +39,12 @@ interface BucketDictionary<K> {
 }
 
 export async function openHashBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   databaseName: string
 ): Promise<HashBase<K>> {
-  const memlet = getOrMakeMemlet(disklet)
+  const memlet = getOrMakeMemlet(storage)
 
-  const configData: HashBaseConfig = await getConfig(disklet, databaseName)
+  const configData: HashBaseConfig = await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.HashBase) {
     throw new Error(`Tried to open HashBase, but type is ${configData.type}`)
   }
@@ -148,10 +149,10 @@ export async function openHashBase<K>(
       // Recursive function for reading files/folders in the partition
       // disklet to accumulate data as a dataDumpDataset
       const dump = async (
-        d: Disklet,
+        memlet: Memlet,
         partition: string = ''
       ): Promise<void> => {
-        const listing = await d.list()
+        const listing = await memlet.list()
         const promises = Object.keys(listing).map(async path => {
           if (getConfigPath(databaseName).includes(path)) {
             return
@@ -165,14 +166,14 @@ export async function openHashBase<K>(
               throw new Error('Unexpected partition hierarchy')
 
             // Recurse into folder using the path as the partition key.
-            return dump(navigateDisklet(d, path), path)
+            return dump(navigateMemlet(memlet, path), path)
           }
           if (type === 'file') {
             // Write the file to the dataDumpDataset
-            const fileData = await d.getText(path)
+            const fileData = await memlet.getJson(path)
             datatDumpDataset[partition] = {
               ...datatDumpDataset[partition],
-              ...JSON.parse(fileData)
+              ...fileData
             }
             return
           }
@@ -182,12 +183,12 @@ export async function openHashBase<K>(
         await Promise.all(promises)
       }
 
-      const partitionDisklet = navigateDisklet(
-        disklet,
+      const partitionMemlet = navigateMemlet(
+        memlet,
         getPartitionPath(databaseName, partition)
       )
 
-      await dump(partitionDisklet, partition)
+      await dump(partitionMemlet, partition)
 
       return {
         config: configData,
@@ -200,16 +201,17 @@ export async function openHashBase<K>(
 }
 
 export async function createHashBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: HashBaseOptions
 ): Promise<HashBase<K>> {
+  const memlet = getOrMakeMemlet(storage)
   const { prefixSize } = options
   const dbName = checkDatabaseName(options.name)
   if (!isPositiveInteger(prefixSize)) {
     throw new Error(`prefixSize must be a number greater than 0`)
   }
 
-  const databaseExists = await doesDatabaseExist(disklet, dbName)
+  const databaseExists = await doesDatabaseExist(memlet, dbName)
   if (databaseExists) {
     throw new Error(`database ${dbName} already exists`)
   }
@@ -218,21 +220,22 @@ export async function createHashBase<K>(
     type: BaseType.HashBase,
     prefixSize
   }
-  await setConfig(disklet, dbName, configData)
+  await setConfig(memlet, dbName, configData)
 
-  return openHashBase(disklet, dbName)
+  return openHashBase(memlet, dbName)
 }
 
 export async function createOrOpenHashBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: HashBaseOptions
 ): Promise<HashBase<K>> {
+  const memlet = getOrMakeMemlet(storage)
   try {
-    return await createHashBase(disklet, options)
+    return await createHashBase(memlet, options)
   } catch (error) {
     if (error instanceof Error && !error.message.includes('already exists')) {
       throw error
     }
-    return openHashBase(disklet, options.name)
+    return openHashBase(memlet, options.name)
   }
 }

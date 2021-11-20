@@ -1,5 +1,6 @@
 import { expect } from 'chai'
 import { makeMemoryDisklet } from 'disklet'
+import { makeMemlet } from 'memlet'
 import { describe, it } from 'mocha'
 
 import { CountBase, createCountBase } from '../src/CountBase'
@@ -13,7 +14,7 @@ interface TestData {
 }
 
 describe('CountBase baselet', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let countbaseDb: CountBase<TestData>
   const options = {
     name: 'testCountdb',
@@ -38,8 +39,8 @@ describe('CountBase baselet', function () {
         }
       }
     }
-    countbaseDb = await createCountBase(disklet, options)
-    expect(await getConfig(disklet, options.name)).eql(expectedTest)
+    countbaseDb = await createCountBase(memlet, options)
+    expect(await getConfig(memlet, options.name)).eql(expectedTest)
   })
   it('empty data', async function () {
     const [data] = await countbaseDb.query(partitionName, 0)
@@ -52,10 +53,10 @@ describe('CountBase baselet', function () {
     }
 
     console.log()
-    const storedConfig = await getConfig<any>(disklet, options.name)
+    const storedConfig = await getConfig<any>(memlet, options.name)
     const bucketNumber = Math.floor(dataSet[0].index / options.bucketSize)
     const buckePath = getBucketPath(options.name, partitionName, bucketNumber)
-    const storedData = JSON.parse(await disklet.getText(buckePath))
+    const storedData = await memlet.getJson(buckePath)
     expect(storedConfig.partitions[partitionName].length).eql(dataSet.length)
     expect(storedData[dataSet[0].index]).eql(dataSet[0])
   })

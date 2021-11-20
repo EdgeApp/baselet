@@ -1,5 +1,6 @@
 import { expect } from 'chai'
 import { makeMemoryDisklet } from 'disklet'
+import { makeMemlet } from 'memlet'
 import { describe, it } from 'mocha'
 
 import { getBucketPath, getConfig } from '../src/helpers'
@@ -20,7 +21,7 @@ type TestData = RangeRecord<
 type TestRangeBase = RangeBase<TestData, typeof rangeKey, typeof idKey>
 
 describe('RangeBase baselet', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
@@ -80,14 +81,14 @@ describe('RangeBase baselet', function () {
       limits: {},
       sizes: {}
     }
-    rangebaseDb = await createRangeBase(disklet, {
+    rangebaseDb = await createRangeBase(memlet, {
       name: dbName,
       bucketSize,
       rangeKey,
       idKey,
       idPrefixLength
     })
-    const config = await getConfig(disklet, dbName)
+    const config = await getConfig(memlet, dbName)
     expect(config).to.eql(expectedTest)
   })
   it('empty array', async () => {
@@ -104,10 +105,10 @@ describe('RangeBase baselet', function () {
     await rangebaseDb.insert(partitionName, testData[6])
 
     const bucket = Math.floor(testData[0][rangeKey] / bucketSize)
-    const storedBucket = await disklet.getText(
+    const storedBucket = await memlet.getJson(
       getBucketPath(dbName, partitionName, bucket)
     )
-    const storedData = JSON.parse(storedBucket).find(
+    const storedData = storedBucket.find(
       (item: TestData) => item[idKey] === testData[0][idKey]
     )
     expect(storedData).eql(testData[0])
@@ -193,7 +194,7 @@ describe('RangeBase baselet', function () {
 })
 
 describe('RangeBase min/max limits', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 3
@@ -229,7 +230,7 @@ describe('RangeBase min/max limits', function () {
   ]
 
   before('setup', async function () {
-    rangebaseDb = await createRangeBase(disklet, {
+    rangebaseDb = await createRangeBase(memlet, {
       name: dbName,
       bucketSize,
       rangeKey,
@@ -297,7 +298,7 @@ describe('RangeBase min/max limits', function () {
 })
 
 describe('RangeBase baselet findById', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2000000
@@ -330,7 +331,7 @@ describe('RangeBase baselet findById', function () {
   ]
 
   before(async () => {
-    rangebaseDb = await createRangeBase(disklet, {
+    rangebaseDb = await createRangeBase(memlet, {
       name: dbName,
       bucketSize,
       rangeKey,
@@ -380,7 +381,7 @@ describe('RangeBase baselet findById', function () {
 })
 
 describe('RangeBase baselet queryByCount', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let rangebaseDb: TestRangeBase
   const dbName = 'testRangedb'
   const bucketSize = 2
@@ -425,7 +426,7 @@ describe('RangeBase baselet queryByCount', function () {
   ]
 
   before(async () => {
-    rangebaseDb = await createRangeBase(disklet, {
+    rangebaseDb = await createRangeBase(memlet, {
       name: dbName,
       bucketSize,
       rangeKey,

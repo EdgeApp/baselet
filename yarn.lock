@@ -2877,10 +2877,10 @@ make-fetch-happen@^8.0.9:
     socks-proxy-agent "^5.0.0"
     ssri "^8.0.0"
 
-memlet@^0.0.3:
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/memlet/-/memlet-0.0.3.tgz#ea54d97d6719a8869c8d5a975edc05660ed0700f"
-  integrity sha512-bpYooeQdE6FdcL6biAMi/1z06X0FfkaWClB1vXZ97Rbi2S1gDpnPAFdrToER0JtE5odpPQrgHGez+bRGtY9pbg==
+memlet@^0.1.5:
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/memlet/-/memlet-0.1.5.tgz#8caa4cda843757b9b05385bf4c14cf7209b03ca3"
+  integrity sha512-e6ldVBF2AlThD3C84mxPunqGGR0DK3CXiMxdJN9KNvg2ew1KBVznPTVIWMNmyUDRvxjlEhIf0RlYInSUDsMj8g==
   dependencies:
     "@types/chai-as-promised" "^7.1.3"
     chai-as-promised "^7.1.1"

@@ -1,5 +1,6 @@
 import { expect } from 'chai'
 import { makeMemoryDisklet } from 'disklet'
+import { makeMemlet } from 'memlet'
 import { describe, it } from 'mocha'
 
 import { createHashBase, HashBase } from '../src/HashBase'
@@ -13,7 +14,7 @@ interface TestData {
 }
 
 describe('HashBase baselet', function () {
-  const disklet = makeMemoryDisklet()
+  const memlet = makeMemlet(makeMemoryDisklet())
   let hashbaseDb: HashBase<TestData>
   const dbName = 'testHashdb'
   const prefixSize = 2
@@ -30,8 +31,9 @@ describe('HashBase baselet', function () {
       type: BaseType.HashBase,
       prefixSize
     }
-    hashbaseDb = await createHashBase(disklet, { name: dbName, prefixSize })
-    expect(await getConfig(disklet, dbName)).eql(expectedTest)
+
+    hashbaseDb = await createHashBase(memlet, { name: dbName, prefixSize })
+    expect(await getConfig(memlet, dbName)).eql(expectedTest)
   })
   it('insert data', async function () {
     for (let i = 0; i < dataSet.length; i++) {
@@ -39,11 +41,10 @@ describe('HashBase baselet', function () {
       await hashbaseDb.insert(partitionName, data.hash, data)
     }
     const prefix = dataSet[0].hash.substring(0, prefixSize)
-    const storedData = await disklet.getText(
+    const storedData = await memlet.getJson(
       getBucketPath(dbName, partitionName, prefix)
     )
-    // @ts-ignore
-    expect(JSON.parse(storedData)[dataSet[0].hash]).eql(dataSet[0])
+    expect(storedData[dataSet[0].hash]).eql(dataSet[0])
   })
   it('query data', async function () {
     const queriedData1 = await hashbaseDb.query(partitionName, [
