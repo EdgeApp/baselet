@@ -1,4 +1,5 @@
 import { Disklet } from 'disklet'
+import { Memlet } from 'memlet'
 
 import {
   checkAndFormatPartition,
@@ -21,12 +22,12 @@ export interface CountBase<K> {
 }
 
 export async function openCountBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   databaseName: string
 ): Promise<CountBase<K>> {
-  const memlet = getOrMakeMemlet(disklet)
+  const memlet = getOrMakeMemlet(storage)
 
-  const configData = await getConfig<CountBaseConfig>(disklet, databaseName)
+  const configData = await getConfig<CountBaseConfig>(memlet, databaseName)
   if (configData.type !== BaseType.CountBase) {
     throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
   }
@@ -73,7 +74,7 @@ export async function openCountBase<K>(
       if (metadataChanged) {
         configData.partitions[formattedPartition] = partitionMetadata
       }
-      await setConfig(disklet, databaseName, configData)
+      await setConfig(memlet, databaseName, configData)
     },
 
     async query(
@@ -122,16 +123,18 @@ export async function openCountBase<K>(
 }
 
 export async function createCountBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: CountBaseOptions
 ): Promise<CountBase<K>> {
+  const memlet = getOrMakeMemlet(storage)
+
   const { name: databaseName, bucketSize } = options
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
 
   const dbName = checkDatabaseName(databaseName)
-  const databaseExists = await doesDatabaseExist(disklet, dbName)
+  const databaseExists = await doesDatabaseExist(memlet, dbName)
   if (databaseExists) {
     throw new Error(`database ${dbName} already exists`)
   }
@@ -145,9 +148,9 @@ export async function createCountBase<K>(
       }
     }
   }
-  await setConfig(disklet, dbName, configData)
+  await setConfig(memlet, dbName, configData)
 
-  return openCountBase(disklet, dbName)
+  return openCountBase(memlet, dbName)
 }
 
 export async function createOrOpenCountBase<K>(

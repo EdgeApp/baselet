@@ -34,18 +34,18 @@ export function getConfigPath(databaseName: string): string {
 }
 
 export function getConfig<T extends BaseletConfig>(
-  disklet: Disklet,
+  memlet: Memlet,
   databaseName: string
 ): Promise<T> {
-  return disklet.getText(getConfigPath(databaseName)).then(JSON.parse)
+  return memlet.getJson(getConfigPath(databaseName))
 }
 
 export async function setConfig(
-  disklet: Disklet,
+  memlet: Memlet,
   databaseName: string,
   config: BaseletConfig
 ): Promise<void> {
-  await disklet.setText(getConfigPath(databaseName), JSON.stringify(config))
+  await memlet.setJson(getConfigPath(databaseName), config)
 }
 
 export function checkAndFormatPartition(partition: string = ''): string {
@@ -74,10 +74,10 @@ export function checkDatabaseName(databaseName: string): string {
 }
 
 export function doesDatabaseExist(
-  disklet: Disklet,
+  memlet: Memlet,
   name: string
 ): Promise<boolean> {
-  return disklet
+  return memlet
     .list('./')
     .then(existingFiles => existingFiles[name] === 'folder')
 }

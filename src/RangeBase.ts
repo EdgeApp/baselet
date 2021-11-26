@@ -1,4 +1,5 @@
 import { Disklet } from 'disklet'
+import { Memlet } from 'memlet'
 
 import {
   checkDatabaseName,
@@ -73,10 +74,10 @@ export async function openRangeBase<
   RangeKey extends string,
   IdKey extends string
 >(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   databaseName: string
 ): Promise<RangeBase<K, RangeKey, IdKey>> {
-  const memlet = getOrMakeMemlet(disklet)
+  const memlet = getOrMakeMemlet(storage)
 
   // uses binary search
   function getIndex(
@@ -156,7 +157,7 @@ export async function openRangeBase<
 
   const configData: RangeBaseConfig<
     RangeBase<K, RangeKey, IdKey>
-  > = await getConfig(disklet, databaseName)
+  > = await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.RangeBase) {
     throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
   }
@@ -232,7 +233,7 @@ export async function openRangeBase<
               if (isMax) {
                 partitionLimits.maxRange = minOrMax
               }
-              return setConfig(disklet, databaseName, configData)
+              return setConfig(memlet, databaseName, configData)
             })
           }
         })
@@ -245,7 +246,7 @@ export async function openRangeBase<
       if (maxRange == null || range > maxRange) {
         partitionLimits.maxRange = range
       }
-      return setConfig(disklet, databaseName, configData)
+      return setConfig(memlet, databaseName, configData)
     }
   }
 
@@ -441,7 +442,7 @@ export async function openRangeBase<
       await updateMinMax(partition, data, false)
       const size = configData.sizes[partition] ?? 0
       configData.sizes[partition] = size + 1
-      await setConfig(disklet, databaseName, configData)
+      await setConfig(memlet, databaseName, configData)
     },
 
     async query(partition = '/', rangeStart, rangeEnd = rangeStart) {
@@ -529,7 +530,7 @@ export async function openRangeBase<
       return find(partition, range, id, true).then(data => {
         const size = configData.sizes[partition] ?? 0
         configData.sizes[partition] = size - 1
-        return setConfig(disklet, databaseName, configData).then(() => data)
+        return setConfig(memlet, databaseName, configData).then(() => data)
       })
     },
 
@@ -576,16 +577,17 @@ export async function createRangeBase<
   RangeKey extends string,
   IdKey extends string
 >(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: RangeBaseOptions<RangeKey, IdKey>
 ): Promise<RangeBase<K, RangeKey, IdKey>> {
+  const memlet = getOrMakeMemlet(storage)
   const { name, bucketSize, rangeKey, idKey, idPrefixLength = 1 } = options
 
   if (!isPositiveInteger(bucketSize)) {
     throw new Error(`bucketSize must be a number greater than 0`)
   }
   const dbName = checkDatabaseName(name)
-  const databaseExists = await doesDatabaseExist(disklet, dbName)
+  const databaseExists = await doesDatabaseExist(memlet, dbName)
   if (databaseExists) {
     throw new Error(`database ${dbName} already exists`)
   }
@@ -599,9 +601,9 @@ export async function createRangeBase<
     limits: {},
     sizes: {}
   }
-  await setConfig(disklet, dbName, configData)
+  await setConfig(memlet, dbName, configData)
 
-  return openRangeBase(disklet, dbName)
+  return openRangeBase(memlet, dbName)
 }
 
 export async function createOrOpenRangeBase<
@@ -609,15 +611,16 @@ export async function createOrOpenRangeBase<
   RangeKey extends string,
   IdKey extends string
 >(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: RangeBaseOptions<RangeKey, IdKey>
 ): Promise<RangeBase<K, RangeKey, IdKey>> {
+  const memlet = getOrMakeMemlet(storage)
   try {
-    return await createRangeBase(disklet, options)
+    return await createRangeBase(memlet, options)
   } catch (error) {
     if (error instanceof Error && !error.message.includes('already exists')) {
       throw error
     }
-    return openRangeBase(disklet, options.name)
+    return openRangeBase(memlet, options.name)
   }
 }
