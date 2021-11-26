@@ -1,7 +1,7 @@
 # Baselet
 
-## Unreleased
-- Upgrade memlet to 0.1.x and integrate memlet exclusively as the backend datastor.
+## 0.2.1 (2021-11-26)
+- Upgrade memlet to 0.1.x and integrate memlet exclusively as the backend datastore.
 
 ## 0.2.0 (2021-10-19)
 
