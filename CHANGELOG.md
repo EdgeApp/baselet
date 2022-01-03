@@ -1,5 +1,8 @@
 # Baselet
 
+## 0.2.2 (2022-1-3)
+- Upgrade memlet to ^0.1.6 to include `memlet.list()` fix.
+
 ## 0.2.1 (2021-11-26)
 - Upgrade memlet to 0.1.x and integrate memlet exclusively as the backend datastore.
 

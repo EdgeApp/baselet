@@ -1,6 +1,6 @@
 {
   "name": "baselet",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A simple database built on disklet",
   "homepage": "https://github.com/EdgeApp/baselet",
   "repository": {
