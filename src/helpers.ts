@@ -33,11 +33,11 @@ export function getConfigPath(databaseName: string): string {
   return `${databaseName}/config.json`
 }
 
-export function getConfig<T extends BaseletConfig>(
+export async function getConfig<T extends BaseletConfig>(
   memlet: Memlet,
   databaseName: string
 ): Promise<T> {
-  return memlet.getJson(getConfigPath(databaseName))
+  return await memlet.getJson(getConfigPath(databaseName))
 }
 
 export async function setConfig(
@@ -73,11 +73,11 @@ export function checkDatabaseName(databaseName: string): string {
   return fDatabase
 }
 
-export function doesDatabaseExist(
+export async function doesDatabaseExist(
   memlet: Memlet,
   name: string
 ): Promise<boolean> {
-  return memlet
+  return await memlet
     .list('./')
     .then(existingFiles => existingFiles[name] === 'folder')
 }

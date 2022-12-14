@@ -30,11 +30,11 @@ export async function openBase<
     .then(serializedConfig => JSON.parse(serializedConfig))
   switch (config.type) {
     case BaseType.CountBase:
-      return openCountBase(disklet, databaseName)
+      return await openCountBase(disklet, databaseName)
     case BaseType.HashBase:
-      return openHashBase(disklet, databaseName)
+      return await openHashBase(disklet, databaseName)
     case BaseType.RangeBase:
-      return openRangeBase(disklet, databaseName)
+      return await openRangeBase(disklet, databaseName)
     default: {
       const type: string = (config as any)?.type
       throw new Error(`Unknown base type: ${type}`)
