@@ -156,7 +156,9 @@ export async function openRangeBase<
   const configData: RangeBaseConfig<RangeBase<K, RangeKey, IdKey>> =
     await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.RangeBase) {
-    throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open RangeBase, but type is ${String(configData.type)}`
+    )
   }
 
   /**
@@ -391,9 +393,7 @@ export async function openRangeBase<
           Object.prototype.hasOwnProperty.call(data, idKey)
         )
       ) {
-        return await Promise.reject(
-          new Error(`data must have properties ${rangeKey} and ${idKey}`)
-        )
+        throw new Error(`data must have properties ${rangeKey} and ${idKey}`)
       }
 
       const existingData = await find(partition, data[rangeKey], data[idKey])
@@ -442,6 +442,7 @@ export async function openRangeBase<
       await setConfig(memlet, databaseName, configData)
     },
 
+    // eslint-disable-next-line @typescript-eslint/default-param-last
     async query(partition = '/', rangeStart, rangeEnd = rangeStart) {
       const { bucketSize, rangeKey } = configData
       const bucketFetchers: Array<

@@ -33,7 +33,9 @@ export async function openCountBase<K>(
 
   const configData = await getConfig<CountBaseConfig>(memlet, databaseName)
   if (configData.type !== BaseType.CountBase) {
-    throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open CountBase, but type is ${String(configData.type)}`
+    )
   }
 
   const out: CountBase<K> = {
@@ -50,14 +52,10 @@ export async function openCountBase<K>(
       const nextIndex = partitionMetadata.length
 
       if (Number.isNaN(index) || index < 0) {
-        return await Promise.reject(
-          new Error('index must be a Number greater than 0')
-        )
+        throw new Error('index must be a Number greater than 0')
       }
       if (index > nextIndex) {
-        return await Promise.reject(
-          new Error('index is larger than next index in partition')
-        )
+        throw new Error('index is larger than next index in partition')
       }
 
       if (index === nextIndex) {

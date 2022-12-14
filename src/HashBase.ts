@@ -46,7 +46,9 @@ export async function openHashBase<K>(
 
   const configData: HashBaseConfig = await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.HashBase) {
-    throw new Error(`Tried to open HashBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open HashBase, but type is ${String(configData.type)}`
+    )
   }
 
   async function find(
@@ -92,6 +94,7 @@ export async function openHashBase<K>(
       const hashData: K | undefined = bucketData[hashes[inputIndex]]
 
       if (remove) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete bucketData[hashes[inputIndex]]
       }
 
@@ -117,8 +120,8 @@ export async function openHashBase<K>(
     async insert(partition: string, hash: string, data: K): Promise<void> {
       const { prefixSize } = configData
       if (hash.length < prefixSize) {
-        return await Promise.reject(
-          new Error(`hash must be a string of length at least ${prefixSize}`)
+        throw new Error(
+          `hash must be a string of length at least ${prefixSize}`
         )
       }
 
@@ -181,7 +184,7 @@ export async function openHashBase<K>(
             return
           }
 
-          throw new Error(`Unknown listing type ${type}`)
+          throw new Error(`Unknown listing type ${String(type)}`)
         })
         await Promise.all(promises)
       }
