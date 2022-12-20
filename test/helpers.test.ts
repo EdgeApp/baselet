@@ -10,7 +10,7 @@ describe('checkAndformatPartition', function () {
   it('fail if argument is not string', function () {
     const partition = 5
     expect(
-      checkAndFormatPartition.bind(this, (partition as unknown) as string)
+      checkAndFormatPartition.bind(this, partition as unknown as string)
     ).to.throw(TypeError)
   })
   it('fail if partition contains invalid characters', function () {

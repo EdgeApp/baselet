@@ -16,12 +16,12 @@ import { BaseType, DataDump, HashBaseConfig, HashBaseOptions } from './types'
 
 export interface HashBase<K> {
   databaseName: string
-  insert(partition: string, hash: string, data: K): Promise<void>
-  query(partition: string, hashes: string[]): Promise<Array<K | undefined>>
-  delete(partition: string, hashes: string[]): Promise<Array<K | undefined>>
-  dumpData(
+  insert: (partition: string, hash: string, data: K) => Promise<void>
+  query: (partition: string, hashes: string[]) => Promise<Array<K | undefined>>
+  delete: (partition: string, hashes: string[]) => Promise<Array<K | undefined>>
+  dumpData: (
     partition: string
-  ): Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>>
+  ) => Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>>
 }
 
 interface DataDumpDataset<K> {
@@ -46,7 +46,9 @@ export async function openHashBase<K>(
 
   const configData: HashBaseConfig = await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.HashBase) {
-    throw new Error(`Tried to open HashBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open HashBase, but type is ${String(configData.type)}`
+    )
   }
 
   async function find(
@@ -92,6 +94,7 @@ export async function openHashBase<K>(
       const hashData: K | undefined = bucketData[hashes[inputIndex]]
 
       if (remove) {
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete bucketData[hashes[inputIndex]]
       }
 
@@ -100,9 +103,9 @@ export async function openHashBase<K>(
 
     let resultPromise: Promise<unknown> = Promise.resolve()
     if (remove) {
-      const deletePromises = Array.from(bucketNames).map(bucketName => {
+      const deletePromises = Array.from(bucketNames).map(async bucketName => {
         const { bucketPath, bucketData } = bucketDict[bucketName]
-        return memlet.setJson(bucketPath, bucketData)
+        return await memlet.setJson(bucketPath, bucketData)
       })
       resultPromise = Promise.all(deletePromises)
     }
@@ -117,28 +120,31 @@ export async function openHashBase<K>(
     async insert(partition: string, hash: string, data: K): Promise<void> {
       const { prefixSize } = configData
       if (hash.length < prefixSize) {
-        return Promise.reject(
-          new Error(`hash must be a string of length at least ${prefixSize}`)
+        throw new Error(
+          `hash must be a string of length at least ${prefixSize}`
         )
       }
 
       const prefix = hash.substring(0, prefixSize)
       const bucketPath = getBucketPath(databaseName, partition, prefix)
-      const setNewData = (oldData = {}): Promise<void> =>
-        memlet.setJson(bucketPath, Object.assign(oldData, { [hash]: data }))
+      const setNewData = async (oldData = {}): Promise<void> =>
+        await memlet.setJson(
+          bucketPath,
+          Object.assign(oldData, { [hash]: data })
+        )
       await memlet.getJson(bucketPath).then(
-        bucketData => setNewData(bucketData),
+        async bucketData => await setNewData(bucketData),
         // assuming bucket doesn't exist
-        () => setNewData()
+        async () => await setNewData()
       )
     },
 
-    query(partition: string, hashes: string[]) {
-      return find(partition, hashes)
+    async query(partition: string, hashes: string[]) {
+      return await find(partition, hashes)
     },
 
-    delete(partition: string, hashes: string[]) {
-      return find(partition, hashes, true)
+    delete: async (partition: string, hashes: string[]) => {
+      return await find(partition, hashes, true)
     },
 
     async dumpData(
@@ -166,7 +172,7 @@ export async function openHashBase<K>(
               throw new Error('Unexpected partition hierarchy')
 
             // Recurse into folder using the path as the partition key.
-            return dump(navigateMemlet(memlet, path), path)
+            return await dump(navigateMemlet(memlet, path), path)
           }
           if (type === 'file') {
             // Write the file to the dataDumpDataset
@@ -178,7 +184,7 @@ export async function openHashBase<K>(
             return
           }
 
-          throw new Error(`Unknown listing type ${type}`)
+          throw new Error(`Unknown listing type ${String(type)}`)
         })
         await Promise.all(promises)
       }
@@ -222,7 +228,7 @@ export async function createHashBase<K>(
   }
   await setConfig(memlet, dbName, configData)
 
-  return openHashBase(memlet, dbName)
+  return await openHashBase(memlet, dbName)
 }
 
 export async function createOrOpenHashBase<K>(
@@ -236,6 +242,6 @@ export async function createOrOpenHashBase<K>(
     if (error instanceof Error && !error.message.includes('already exists')) {
       throw error
     }
-    return openHashBase(memlet, options.name)
+    return await openHashBase(memlet, options.name)
   }
 }

@@ -15,10 +15,14 @@ import { BaseType, CountBaseConfig, CountBaseOptions, DataDump } from './types'
 
 export interface CountBase<K> {
   databaseName: string
-  insert(partition: string, index: number, data: K): Promise<void>
-  query(partition: string, rangeStart: number, rangeEnd?: number): Promise<K[]>
-  length(partition: string): number
-  dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>>
+  insert: (partition: string, index: number, data: K) => Promise<void>
+  query: (
+    partition: string,
+    rangeStart: number,
+    rangeEnd?: number
+  ) => Promise<K[]>
+  length: (partition: string) => number
+  dumpData: (partition: string) => Promise<DataDump<CountBaseConfig, K[]>>
 }
 
 export async function openCountBase<K>(
@@ -29,7 +33,9 @@ export async function openCountBase<K>(
 
   const configData = await getConfig<CountBaseConfig>(memlet, databaseName)
   if (configData.type !== BaseType.CountBase) {
-    throw new Error(`Tried to open CountBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open CountBase, but type is ${String(configData.type)}`
+    )
   }
 
   const out: CountBase<K> = {
@@ -46,14 +52,10 @@ export async function openCountBase<K>(
       const nextIndex = partitionMetadata.length
 
       if (Number.isNaN(index) || index < 0) {
-        return Promise.reject(
-          new Error('index must be a Number greater than 0')
-        )
+        throw new Error('index must be a Number greater than 0')
       }
       if (index > nextIndex) {
-        return Promise.reject(
-          new Error('index is larger than next index in partition')
-        )
+        throw new Error('index is larger than next index in partition')
       }
 
       if (index === nextIndex) {
@@ -150,7 +152,7 @@ export async function createCountBase<K>(
   }
   await setConfig(memlet, dbName, configData)
 
-  return openCountBase(memlet, dbName)
+  return await openCountBase(memlet, dbName)
 }
 
 export async function createOrOpenCountBase<K>(
@@ -163,6 +165,6 @@ export async function createOrOpenCountBase<K>(
     if (err instanceof Error && !err.message.includes('already exists')) {
       throw err
     }
-    return openCountBase(disklet, options.name)
+    return await openCountBase(disklet, options.name)
   }
 }

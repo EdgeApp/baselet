@@ -15,9 +15,7 @@ import { BaseType, DataDump, RangeBaseConfig, RangeBaseOptions } from './types'
 
 export type RangeRecord<K, RangeKey extends string, IdKey extends string> = {
   [key in RangeKey]: number
-} &
-  { [key in IdKey]: string } &
-  K
+} & { [key in IdKey]: string } & K
 
 export interface RangeBase<
   K extends RangeRecord<any, RangeKey, IdKey>,
@@ -27,41 +25,41 @@ export interface RangeBase<
   rangeKey: RangeKey
   idKey: IdKey
   databaseName: string
-  insert(
+  insert: (
     partition: string,
     data: RangeRecord<K, RangeKey, IdKey>
-  ): Promise<void>
-  query(
+  ) => Promise<void>
+  query: (
     partition: string,
     rangeStart: number,
     rangeEnd?: number
-  ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
-  queryById(
+  ) => Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
+  queryById: (
     partition: string,
     range: number,
     id: string
-  ): Promise<RangeRecord<K, RangeKey, IdKey>>
-  queryByCount(
+  ) => Promise<RangeRecord<K, RangeKey, IdKey>>
+  queryByCount: (
     partition: string,
     count: number,
     offset: number
-  ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
-  delete(
+  ) => Promise<Array<RangeRecord<K, RangeKey, IdKey>>>
+  delete: (
     partition: string,
     range: number,
     id: string
-  ): Promise<RangeRecord<K, RangeKey, IdKey>>
-  update(
+  ) => Promise<RangeRecord<K, RangeKey, IdKey>>
+  update: (
     partition: string,
     oldRange: number,
     newData: RangeRecord<K, RangeKey, IdKey>
-  ): Promise<void>
-  min(partition: string): number
-  max(partition: string): number
-  size(partition: string): number
-  dumpData(
+  ) => Promise<void>
+  min: (partition: string) => number
+  max: (partition: string) => number
+  size: (partition: string) => number
+  dumpData: (
     partition: string
-  ): Promise<
+  ) => Promise<
     DataDump<
       RangeBaseConfig<RangeBase<K, RangeKey, IdKey>>,
       Array<RangeRecord<K, RangeKey, IdKey>>
@@ -155,11 +153,12 @@ export async function openRangeBase<
     }
   }
 
-  const configData: RangeBaseConfig<
-    RangeBase<K, RangeKey, IdKey>
-  > = await getConfig(memlet, databaseName)
+  const configData: RangeBaseConfig<RangeBase<K, RangeKey, IdKey>> =
+    await getConfig(memlet, databaseName)
   if (configData.type !== BaseType.RangeBase) {
-    throw new Error(`Tried to open RangeBase, but type is ${configData.type}`)
+    throw new Error(
+      `Tried to open RangeBase, but type is ${String(configData.type)}`
+    )
   }
 
   /**
@@ -223,17 +222,17 @@ export async function openRangeBase<
       const isMin = range === partitionLimits.minRange
       const isMax = range === partitionLimits.maxRange
       if (isMin || isMax) {
-        return out.query(partition, range).then(items => {
+        return await out.query(partition, range).then(items => {
           // If it was, find what the new min or max is supposed to be and save it in the config
           if (items.length === 0) {
-            return findLimit(partition, isMax).then(minOrMax => {
+            return findLimit(partition, isMax).then(async minOrMax => {
               if (isMin) {
                 partitionLimits.minRange = minOrMax
               }
               if (isMax) {
                 partitionLimits.maxRange = minOrMax
               }
-              return setConfig(memlet, databaseName, configData)
+              return await setConfig(memlet, databaseName, configData)
             })
           }
         })
@@ -246,7 +245,7 @@ export async function openRangeBase<
       if (maxRange == null || range > maxRange) {
         partitionLimits.maxRange = range
       }
-      return setConfig(memlet, databaseName, configData)
+      return await setConfig(memlet, databaseName, configData)
     }
   }
 
@@ -308,12 +307,12 @@ export async function openRangeBase<
     let offsetCount = offset
     async function fetchBucket(index: number): Promise<void> {
       if (count === data.length || index === nums.length)
-        return Promise.resolve()
+        return await Promise.resolve()
 
       const bucketData = await fetchBucketData(partition, nums[index])
       if (bucketData.length <= offsetCount) {
         offsetCount -= bucketData.length
-        return fetchBucket(++index)
+        return await fetchBucket(++index)
       }
 
       const end = bucketData.length - offsetCount
@@ -322,7 +321,7 @@ export async function openRangeBase<
       data = [...data, ...bucketData.slice(start, end).reverse()]
 
       offsetCount = 0
-      return fetchBucket(++index)
+      return await fetchBucket(++index)
     }
 
     await fetchBucket(0)
@@ -354,12 +353,12 @@ export async function openRangeBase<
    * @param num Bucket number to fetch
    * @return Array of items from the bucket
    */
-  function fetchBucketData(
+  async function fetchBucketData(
     partition: string,
     num: string | number
   ): Promise<Array<RangeRecord<K, RangeKey, IdKey>>> {
     const path = getBucketPath(databaseName, partition, num)
-    return memlet.getJson(path).catch(() => [])
+    return await memlet.getJson(path).catch(() => [])
   }
 
   /**
@@ -375,9 +374,9 @@ export async function openRangeBase<
   ): Promise<void> {
     const path = getBucketPath(databaseName, partition, num)
     if (data.length === 0) {
-      return memlet.delete(path)
+      return await memlet.delete(path)
     } else {
-      return memlet.setJson(path, data)
+      return await memlet.setJson(path, data)
     }
   }
 
@@ -394,9 +393,7 @@ export async function openRangeBase<
           Object.prototype.hasOwnProperty.call(data, idKey)
         )
       ) {
-        return Promise.reject(
-          new Error(`data must have properties ${rangeKey} and ${idKey}`)
-        )
+        throw new Error(`data must have properties ${rangeKey} and ${idKey}`)
       }
 
       const existingData = await find(partition, data[rangeKey], data[idKey])
@@ -406,7 +403,7 @@ export async function openRangeBase<
 
       const bucketNumber = Math.floor(data[rangeKey] / bucketSize)
       await fetchBucketData(partition, bucketNumber).then(
-        bucketData => {
+        async bucketData => {
           const firstRangeOccurrence = getIndex(
             data[rangeKey],
             rangeKey,
@@ -432,11 +429,11 @@ export async function openRangeBase<
             )
             bucketData.splice(targetIndex.index, 0, data)
           }
-          return saveBucket(partition, bucketNumber, bucketData)
+          return await saveBucket(partition, bucketNumber, bucketData)
         },
-        () => {
+        async () => {
           // assuming bucket doesnt exist
-          return saveBucket(partition, bucketNumber, [data])
+          return await saveBucket(partition, bucketNumber, [data])
         }
       )
       await updateMinMax(partition, data, false)
@@ -445,6 +442,7 @@ export async function openRangeBase<
       await setConfig(memlet, databaseName, configData)
     },
 
+    // eslint-disable-next-line @typescript-eslint/default-param-last
     async query(partition = '/', rangeStart, rangeEnd = rangeStart) {
       const { bucketSize, rangeKey } = configData
       const bucketFetchers: Array<
@@ -518,19 +516,21 @@ export async function openRangeBase<
       return queryResults
     },
 
-    queryById(partition, range, id) {
-      return find(partition, range, id)
+    async queryById(partition, range, id) {
+      return await find(partition, range, id)
     },
 
-    queryByCount(partition, count, offset = 0) {
-      return queryByCount(partition, count, offset)
+    async queryByCount(partition, count, offset = 0) {
+      return await queryByCount(partition, count, offset)
     },
 
-    delete(partition, range, id) {
-      return find(partition, range, id, true).then(data => {
+    delete: async (partition, range, id) => {
+      return await find(partition, range, id, true).then(async data => {
         const size = configData.sizes[partition] ?? 0
         configData.sizes[partition] = size - 1
-        return setConfig(memlet, databaseName, configData).then(() => data)
+        return await setConfig(memlet, databaseName, configData).then(
+          () => data
+        )
       })
     },
 
@@ -603,7 +603,7 @@ export async function createRangeBase<
   }
   await setConfig(memlet, dbName, configData)
 
-  return openRangeBase(memlet, dbName)
+  return await openRangeBase(memlet, dbName)
 }
 
 export async function createOrOpenRangeBase<
@@ -621,6 +621,6 @@ export async function createOrOpenRangeBase<
     if (error instanceof Error && !error.message.includes('already exists')) {
       throw error
     }
-    return openRangeBase(memlet, options.name)
+    return await openRangeBase(memlet, options.name)
   }
 }
