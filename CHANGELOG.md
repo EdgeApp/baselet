@@ -1,5 +1,8 @@
 # Baselet
 
+## 0.2.3 (2022-20-12)
+- Upgrade lint and fix lint errors
+
 ## 0.2.2 (2022-1-3)
 - Upgrade memlet to ^0.1.6 to include `memlet.list()` fix.
 
