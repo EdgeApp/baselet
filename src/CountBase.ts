@@ -156,15 +156,16 @@ export async function createCountBase<K>(
 }
 
 export async function createOrOpenCountBase<K>(
-  disklet: Disklet,
+  storage: Disklet | Memlet,
   options: CountBaseOptions
 ): Promise<CountBase<K>> {
+  const memlet = getOrMakeMemlet(storage)
   try {
-    return await createCountBase(disklet, options)
+    return await createCountBase(memlet, options)
   } catch (err) {
     if (err instanceof Error && !err.message.includes('already exists')) {
       throw err
     }
-    return await openCountBase(disklet, options.name)
+    return await openCountBase(memlet, options.name)
   }
 }
