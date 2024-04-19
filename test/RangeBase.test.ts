@@ -71,6 +71,8 @@ describe('RangeBase baselet', function () {
       output: 'nexo'
     }
   ]
+  const dataToDelete = testData[3]
+
   it('create rangebase', async function () {
     const expectedTest: RangeBaseConfig = {
       type: BaseType.RangeBase,
@@ -145,7 +147,6 @@ describe('RangeBase baselet', function () {
     expect(data5).to.eql(testData[4])
   })
   it('delete data', async function () {
-    const dataToDelete = testData[3]
     await rangebaseDb.delete(
       partitionName,
       dataToDelete[rangeKey],
@@ -187,9 +188,15 @@ describe('RangeBase baselet', function () {
     expect(newDataFromQuery).eql(newData)
   })
   it('dumpData', async () => {
-    const dump = await rangebaseDb.dumpData(partitionName)
+    const remainingTestData = testData.filter(data => data !== dataToDelete)
+
+    const dump = await rangebaseDb.dumpData()
     expect(dump).keys(['config', 'data'])
-    expect(dump.data.length).is.lessThan(testData.length)
+    expect(dump.data).keys([partitionName])
+    expect(dump.data[partitionName]).length(remainingTestData.length)
+    expect(dump.data[partitionName].map(({ id }) => id)).to.have.members(
+      remainingTestData.map(({ id }) => id)
+    )
   })
 })
 

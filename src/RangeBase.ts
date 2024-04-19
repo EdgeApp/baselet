@@ -57,14 +57,16 @@ export interface RangeBase<
   min: (partition: string) => number
   max: (partition: string) => number
   size: (partition: string) => number
-  dumpData: (
-    partition: string
-  ) => Promise<
+  dumpData: () => Promise<
     DataDump<
       RangeBaseConfig<RangeBase<K, RangeKey, IdKey>>,
-      Array<RangeRecord<K, RangeKey, IdKey>>
+      DataDumpDataset<K, RangeKey, IdKey>
     >
   >
+}
+
+interface DataDumpDataset<K, RangeKey extends string, IdKey extends string> {
+  [partition: string]: Array<RangeRecord<K, RangeKey, IdKey>>
 }
 
 export async function openRangeBase<
@@ -559,9 +561,12 @@ export async function openRangeBase<
       return configData.sizes[partition] ?? 0
     },
 
-    async dumpData(partition) {
-      const min = out.min(partition) ?? 0
-      const data = await out.query(partition, min, out.max(partition))
+    async dumpData() {
+      const data: DataDumpDataset<K, RangeKey, IdKey> = {}
+      for (const partition of Object.keys(configData.sizes)) {
+        const min = out.min(partition) ?? 0
+        data[partition] = await out.query(partition, min, out.max(partition))
+      }
       return {
         config: configData,
         data
