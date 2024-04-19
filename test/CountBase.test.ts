@@ -77,8 +77,9 @@ describe('CountBase baselet', function () {
     expect(partitionLength).eql(dataSet.length)
   })
   it('dumpData', async () => {
-    const dump = await countbaseDb.dumpData(partitionName)
+    const dump = await countbaseDb.dumpData()
     expect(dump).keys(['config', 'data'])
-    expect(dump.data).length(dataSet.length)
+    expect(dump.data).keys(['', partitionName])
+    expect(dump.data[partitionName]).length(dataSet.length)
   })
 })

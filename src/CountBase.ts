@@ -22,7 +22,11 @@ export interface CountBase<K> {
     rangeEnd?: number
   ) => Promise<K[]>
   length: (partition: string) => number
-  dumpData: (partition: string) => Promise<DataDump<CountBaseConfig, K[]>>
+  dumpData: () => Promise<DataDump<CountBaseConfig, DataDumpDataset<K>>>
+}
+
+interface DataDumpDataset<K> {
+  [partition: string]: K[]
 }
 
 export async function openCountBase<K>(
@@ -112,8 +116,17 @@ export async function openCountBase<K>(
       return partitionMetadata?.length ?? 0
     },
 
-    async dumpData(partition: string): Promise<DataDump<CountBaseConfig, K[]>> {
-      const data = await out.query(partition, 0, out.length(partition) - 1)
+    async dumpData() {
+      const data: DataDumpDataset<K> = {}
+
+      for (const partition of Object.keys(configData.partitions)) {
+        data[partition] = await out.query(
+          partition,
+          0,
+          out.length(partition) - 1
+        )
+      }
+
       return {
         config: configData,
         data
