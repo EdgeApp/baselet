@@ -33,18 +33,21 @@ describe('CountBase baselet', function () {
     const expectedTest: CountBaseConfig = {
       type: BaseType.CountBase,
       bucketSize: options.bucketSize,
-      partitions: {
-        '': {
-          length: 0
-        }
-      }
+      partitions: {}
     }
     countbaseDb = await createCountBase(memlet, options)
     expect(await getConfig(memlet, options.name)).eql(expectedTest)
   })
   it('empty data', async function () {
+    const length = await countbaseDb.length(partitionName)
+    expect(length).equal(0)
+
     const [data] = await countbaseDb.query(partitionName, 0)
     expect(data).equal(undefined)
+
+    const dump = await countbaseDb.dumpData()
+    expect(dump).keys(['config', 'data'])
+    expect(dump.data).deep.equals({})
   })
   it('insert data', async function () {
     for (let i = 0; i < dataSet.length; i++) {
@@ -79,7 +82,7 @@ describe('CountBase baselet', function () {
   it('dumpData', async () => {
     const dump = await countbaseDb.dumpData()
     expect(dump).keys(['config', 'data'])
-    expect(dump.data).keys(['', partitionName])
+    expect(dump.data).keys([partitionName])
     expect(dump.data[partitionName]).length(dataSet.length)
   })
 })

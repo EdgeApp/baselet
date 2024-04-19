@@ -157,11 +157,7 @@ export async function createCountBase<K>(
   const configData: CountBaseConfig = {
     type: BaseType.CountBase,
     bucketSize: Math.floor(bucketSize),
-    partitions: {
-      '': {
-        length: 0
-      }
-    }
+    partitions: {}
   }
   await setConfig(memlet, dbName, configData)
 
