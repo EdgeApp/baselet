@@ -77,7 +77,7 @@ describe('HashBase baselet', function () {
     expect(queriedData2).eql(undefined)
   })
   it('dumpData', async () => {
-    const dump = await hashbaseDb.dumpData('')
+    const dump = await hashbaseDb.dumpData()
 
     expect(dump).keys(['config', 'data'])
     expect(dump.data).keys([partitionName])

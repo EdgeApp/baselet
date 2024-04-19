@@ -20,7 +20,7 @@ export interface HashBase<K> {
   query: (partition: string, hashes: string[]) => Promise<Array<K | undefined>>
   delete: (partition: string, hashes: string[]) => Promise<Array<K | undefined>>
   dumpData: (
-    partition: string
+    partition?: string
   ) => Promise<DataDump<HashBaseConfig, DataDumpDataset<K>>>
 }
 
