@@ -9,8 +9,10 @@ import { BaseType, HashBaseConfig } from '../src/types'
 
 interface TestData {
   hash: string
-  input: string
-  output: string
+  name: string
+}
+interface TestDataFixture {
+  [partitionName: string]: TestData[]
 }
 
 describe('HashBase baselet', function () {
@@ -18,14 +20,23 @@ describe('HashBase baselet', function () {
   let hashbaseDb: HashBase<TestData>
   const dbName = 'testHashdb'
   const prefixSize = 2
-  const partitionName = 'students'
-  const dataSet: TestData[] = [
-    { hash: 'abcd-efgh-ijkl-mnop', input: 'btc', output: 'eth' },
-    { hash: 'bytc-efgh-ijkl-mnop', input: 'ltc', output: 'eth' },
-    { hash: 'abcd-hitk-ijkl-mnop', input: 'eth', output: 'bat' },
-    { hash: 'zbcd-efgh-ijkl-dfop', input: 'bat', output: 'btc' },
-    { hash: 'zbcd-abcd-ijkl-ddop', input: 'bat', output: 'ltc' }
-  ]
+  const testDataFixture: TestDataFixture = {
+    students: [
+      { hash: 'abcd-efgh-ijkl-mnop', name: 'bob' },
+      { hash: 'bytc-efgh-ijkl-mnop', name: 'larry' },
+      { hash: 'abcd-hitk-ijkl-mnop', name: 'ethan' },
+      { hash: 'zbcd-efgh-ijkl-dfop', name: 'bateman' },
+      { hash: 'zbcd-abcd-ijkl-ddop', name: 'batman' }
+    ],
+    teachers: [
+      { hash: 'abcd-efgh-ijkl-mnop', name: 'mr. bob' },
+      { hash: 'bytc-efgh-ijkl-mnop', name: 'mr. larry' },
+      { hash: 'abcd-hitk-ijkl-mnop', name: 'mr. ethan' },
+      { hash: 'zbcd-efgh-ijkl-dfop', name: 'mr. bateman' },
+      { hash: 'zbcd-abcd-ijkl-ddop', name: 'batman' }
+    ]
+  }
+
   it('create hashbase', async function () {
     const expectedTest: HashBaseConfig = {
       type: BaseType.HashBase,
@@ -36,59 +47,94 @@ describe('HashBase baselet', function () {
     expect(await getConfig(memlet, dbName)).eql(expectedTest)
   })
   it('insert data', async function () {
-    for (let i = 0; i < dataSet.length; i++) {
-      const data = dataSet[i]
-      await hashbaseDb.insert(partitionName, data.hash, data)
+    for (const partitionName of Object.keys(testDataFixture)) {
+      const testData = testDataFixture[partitionName]
+
+      for (let i = 0; i < testData.length; i++) {
+        const data = testData[i]
+        await hashbaseDb.insert(partitionName, data.hash, data)
+      }
+      const prefix = testData[0].hash.substring(0, prefixSize)
+      const storedData = await memlet.getJson(
+        getBucketPath(dbName, partitionName, prefix)
+      )
+      expect(storedData[testData[0].hash]).eql(testData[0])
     }
-    const prefix = dataSet[0].hash.substring(0, prefixSize)
-    const storedData = await memlet.getJson(
-      getBucketPath(dbName, partitionName, prefix)
-    )
-    expect(storedData[dataSet[0].hash]).eql(dataSet[0])
   })
   it('query data', async function () {
-    const queriedData1 = await hashbaseDb.query(partitionName, [
-      dataSet[0].hash
-    ])
-    const queriedData2 = await hashbaseDb.query(partitionName, [
-      dataSet[1].hash,
-      dataSet[2].hash
-    ])
-    const queriedData3 = await hashbaseDb.query(partitionName, [
-      dataSet[4].hash,
-      dataSet[3].hash
-    ])
-    expect(queriedData1).eql([dataSet[0]])
-    expect(queriedData2).eql([dataSet[1], dataSet[2]])
-    expect(queriedData3).eql([dataSet[4], dataSet[3]])
+    for (const partitionName of Object.keys(testDataFixture)) {
+      const testData = testDataFixture[partitionName]
+
+      const queriedData1 = await hashbaseDb.query(partitionName, [
+        testData[0].hash
+      ])
+      const queriedData2 = await hashbaseDb.query(partitionName, [
+        testData[1].hash,
+        testData[2].hash
+      ])
+      const queriedData3 = await hashbaseDb.query(partitionName, [
+        testData[4].hash,
+        testData[3].hash
+      ])
+      expect(queriedData1).eql([testData[0]])
+      expect(queriedData2).eql([testData[1], testData[2]])
+      expect(queriedData3).eql([testData[4], testData[3]])
+    }
   })
   it('delete data', async function () {
-    const dataToDelete = dataSet[dataSet.length - 1]
+    for (const partitionName of Object.keys(testDataFixture)) {
+      const testData = testDataFixture[partitionName]
 
-    const [queriedData1] = await hashbaseDb.query(partitionName, [
-      dataToDelete.hash
-    ])
-    expect(queriedData1).to.eql(dataToDelete)
+      const dataToDelete = testData[testData.length - 1]
 
-    await hashbaseDb.delete(partitionName, [dataToDelete.hash])
-    const [queriedData2] = await hashbaseDb.query(partitionName, [
-      dataToDelete.hash
-    ])
-    expect(queriedData2).eql(undefined)
+      const [queriedData1] = await hashbaseDb.query(partitionName, [
+        dataToDelete.hash
+      ])
+      expect(queriedData1).to.eql(dataToDelete)
+
+      await hashbaseDb.delete(partitionName, [dataToDelete.hash])
+      const [queriedData2] = await hashbaseDb.query(partitionName, [
+        dataToDelete.hash
+      ])
+      expect(queriedData2).eql(undefined)
+    }
   })
   it('dumpData', async () => {
-    const dump = await hashbaseDb.dumpData('')
+    for (const partitionName of Object.keys(testDataFixture)) {
+      const testData = testDataFixture[partitionName]
+
+      const dump = await hashbaseDb.dumpData(partitionName)
+
+      expect(dump).keys(['config', 'data'])
+      expect(dump.data).keys([partitionName])
+
+      const dumpDataSet: { [hash: string]: TestData } = {}
+      for (const data of testData) {
+        dumpDataSet[data.hash] = data
+      }
+
+      for (const [key, value] of Object.entries(dump.data[partitionName])) {
+        expect(value).to.deep.equal(dumpDataSet[key])
+      }
+    }
+  })
+  it('dumpData all', async () => {
+    const dump = await hashbaseDb.dumpData()
 
     expect(dump).keys(['config', 'data'])
-    expect(dump.data).keys([partitionName])
+    expect(dump.data).keys(Object.keys(testDataFixture))
 
-    const dumpDataSet: { [hash: string]: TestData } = {}
-    for (const data of dataSet) {
-      dumpDataSet[data.hash] = data
-    }
+    for (const partitionName of Object.keys(testDataFixture)) {
+      const testData = testDataFixture[partitionName]
 
-    for (const [key, value] of Object.entries(dump.data[partitionName])) {
-      expect(value).to.deep.equal(dumpDataSet[key])
+      const dumpDataSet: { [hash: string]: TestData } = {}
+      for (const data of testData) {
+        dumpDataSet[data.hash] = data
+      }
+
+      for (const [key, value] of Object.entries(dump.data[partitionName])) {
+        expect(value).to.deep.equal(dumpDataSet[key])
+      }
     }
   })
 })

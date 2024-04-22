@@ -1,5 +1,12 @@
 # Baselet
 
+## Unreleased
+
+- changed: For all baselet types, `dumpData` returns the full database across all partitions.
+- changed: The `partition` parameter for `HashBase` is an optional parameter.
+- fixed: Remove persistent empty partition (`''`) from all `CountBase` instances
+- removed: Removed `partition` parameter for `CountBase` and `RangeBase`.
+
 ## 0.2.4 (2023-07-12)
 
 - Fixed: Accept a `Memlet` interface for `createOrOpenCountBase`
