@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 (2024-04-22)
+
 - changed: For all baselet types, `dumpData` returns the full database across all partitions.
 - changed: The `partition` parameter for `HashBase` is an optional parameter.
 - fixed: Remove persistent empty partition (`''`) from all `CountBase` instances
